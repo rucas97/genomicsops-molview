@@ -111,7 +111,8 @@ fun ViewerScreen() {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(GenomicsDark)) {
+    // USING BOX INSTEAD OF COLUMN SO WEBVIEW FILLS SCREEN
+    Box(Modifier.fillMaxSize().background(GenomicsDark)) {
         if (pdbText == null) {
             // --- HOME SCREEN ---
             Column(
@@ -141,41 +142,24 @@ fun ViewerScreen() {
                 }
             }
         } else {
-            // --- VIEWER SCREEN ---
-            Surface(color = GenomicsSurface, modifier = Modifier.fillMaxWidth()) {
-                Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    listOf("cartoon", "surface", "ballstick", "stick").forEach { rep ->
-                        FilterChip(
-                            selected = false,
-                            onClick = { webViewInstance?.evaluateJavascript("setRep('$rep')", null) },
-                            label = { Text(rep, fontSize = 12.sp) },
-                            colors = FilterChipDefaults.filterChipColors(labelColor = GenomicsCyan, containerColor = Color.Transparent),
-                            border = FilterChipDefaults.filterChipBorder(enabled = true, selected = false, borderColor = GenomicsCyan.copy(alpha = 0.5f))
-                        )
-                    }
-                }
-            }
-
+            // --- VIEWER SCREEN (WebView fills whole screen) ---
             AndroidView(
                 factory = { ctx ->
                     WebView(ctx).apply {
                         setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
-                        settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.allowFileAccess = true
                         settings.allowContentAccess = true
                         settings.allowFileAccessFromFileURLs = true
                         settings.allowUniversalAccessFromFileURLs = true
+                        settings.useWideViewPort = true
+                        settings.loadWithOverviewMode = true
                         
-                        // THIS IS THE MISSING PIECE FOR ALERTS
                         webChromeClient = WebChromeClient()
-                        
-                        // This allows JS to send messages to our Toast
                         addJavascriptInterface(object {
                             @JavascriptInterface
                             fun log(msg: String) {
-                                android.util.Log.d("MolViewJS", msg)
                                 (ctx as? android.app.Activity)?.runOnUiThread {
                                     Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
                                 }
@@ -190,27 +174,45 @@ fun ViewerScreen() {
                             }
                         }
                         
-                        // Use loadDataWithBaseURL to bypass file:// restrictions
-                        settings.allowFileAccessFromFileURLs = true
-                        settings.allowUniversalAccessFromFileURLs = true
-                        loadUrl("file:///android_asset/viewer4.html?v=" + System.currentTimeMillis())
-                        
-                        clearCache(true)
+                        // Load the NEW viewer5.html
+                        loadUrl("file:///android_asset/viewer5.html?v=" + System.currentTimeMillis())
                         webViewInstance = this
                     }
                 },
-                modifier = Modifier.weight(1f).fillMaxWidth()
+                modifier = Modifier.fillMaxSize() // Fills the Box
             )
 
-            Surface(color = GenomicsSurface, modifier = Modifier.fillMaxWidth()) {
+            // Overlay UI on top of the WebView
+            Column(
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Top Buttons
+                Surface(color = GenomicsSurface.copy(alpha = 0.9f), shape = RoundedCornerShape(8.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        listOf("cartoon", "surface", "ballstick", "stick").forEach { rep ->
+                            FilterChip(
+                                selected = false,
+                                onClick = { webViewInstance?.evaluateJavascript("setRep('$rep')", null) },
+                                label = { Text(rep, fontSize = 12.sp) },
+                                colors = FilterChipDefaults.filterChipColors(labelColor = GenomicsCyan, containerColor = Color.Transparent),
+                                border = FilterChipDefaults.filterChipBorder(enabled = true, selected = false, borderColor = GenomicsCyan.copy(alpha = 0.5f))
+                            )
+                        }
+                    }
+                }
+
+                // Bottom Close Button
                 TextButton(
                     onClick = { 
                         pdbText = null 
                         isPageReady = false
                         webViewInstance?.reload()
                     },
-                    modifier = Modifier.fillMaxWidth().padding(8.dp)
-                ) { Text("Close Structure", color = GenomicsMuted) }
+                    modifier = Modifier.align(Alignment.CenterHorizontally).background(GenomicsSurface.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
+                ) { 
+                    Text("Close Structure", color = GenomicsMuted) 
+                }
             }
         }
     }
