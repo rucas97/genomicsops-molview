@@ -48,29 +48,27 @@
     currentRep = rep;
     if (!currentModel) return;
     viewer.removeAllSurfaces();
+    
+    // Use colorscheme: instead of color: to prevent black screens
     if (rep === 'cartoon') {
-      viewer.setStyle({}, { cartoon: { color: currentColor } });
+      viewer.setStyle({}, { cartoon: { colorscheme: currentColor } });
       viewer.render();
     } else if (rep === 'surface') {
-      viewer.setStyle({}, { cartoon: { color: currentColor } });
+      viewer.setStyle({}, { cartoon: { colorscheme: currentColor } });
       viewer.addSurface($3Dmol.SurfaceType.VDW, { opacity: 0.85, color: 'white' }, { model: currentModel });
       viewer.render();
     } else if (rep === 'ballstick') {
-      viewer.setStyle({}, { stick: { radius: 0.15 }, sphere: { scale: 0.25 } });
+      viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: currentColor }, sphere: { scale: 0.25, colorscheme: currentColor } });
       viewer.render();
     } else if (rep === 'stick') {
-      viewer.setStyle({}, { stick: { radius: 0.15 } });
+      viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: currentColor } });
       viewer.render();
     }
   }
 
   function setColor(scheme) {
     currentColor = scheme;
-    if (!currentModel) return;
-    if (currentRep === 'cartoon' || currentRep === 'surface') {
-      viewer.setStyle({}, { cartoon: { color: scheme } });
-      viewer.render();
-    }
+    setRep(currentRep); // Re-apply the current representation with the new color
   }
 
   function toggleSpin() {

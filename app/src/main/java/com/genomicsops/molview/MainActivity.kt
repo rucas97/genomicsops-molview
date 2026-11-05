@@ -269,13 +269,21 @@ fun ViewerScreen() {
                 }
                 
                 Column(Modifier.fillMaxWidth()) {
-                    if (fastaResidues.isNotEmpty()) {
-                        Surface(color = Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(4.dp)) {
-                            LazyRow(
-                                modifier = Modifier.fillMaxWidth().height(30.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
+                    // Always show the sequence panel
+                    Surface(color = Color.White.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp), border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))) {
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth().height(40.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (fastaResidues.isEmpty()) {
+                                item { 
+                                    Text("SEQ: Not available (Try a .pdb file)", color = GenomicsMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace) 
+                                }
+                            } else {
+                                item {
+                                    Text("SEQ: ", color = GenomicsCyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                                }
                                 items(fastaResidues.size) { index ->
                                     val res = fastaResidues[index]
                                     Text(
@@ -289,8 +297,8 @@ fun ViewerScreen() {
                                 }
                             }
                         }
-                        Spacer(Modifier.height(8.dp))
                     }
+                    Spacer(Modifier.height(8.dp))
 
                     TextButton(
                         onClick = { 
