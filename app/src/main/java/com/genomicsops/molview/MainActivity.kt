@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.genomicsops.molview.mol.PdbParser
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
@@ -33,10 +34,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ViewerScreen() {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope() // FIX: lifecycle-aware scope
     var statusText by remember { mutableStateOf("No file loaded.") }
     var isLoading by remember { mutableStateOf(false) }
 
-    // This launches the Android file picker
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -44,8 +45,7 @@ fun ViewerScreen() {
         isLoading = true
         statusText = "Parsing..."
 
-        // Parse in the background so we don't freeze the UI
-        CoroutineScope(Dispatchers.Main).launch {
+        scope.launch { // FIX: using the Compose scope
             val result = withContext(Dispatchers.IO) {
                 try {
                     val inputStream = context.contentResolver.openInputStream(uri)
@@ -78,7 +78,7 @@ fun ViewerScreen() {
         )
 
         Button(
-            onClick = { filePicker.launch("*/*") }, // Allow any file so you can pick .pdb/.ent/.txt
+            onClick = { filePicker.launch("*/*") }, 
             enabled = !isLoading
         ) {
             Text(if (isLoading) "Loading..." else "Select PDB File")
