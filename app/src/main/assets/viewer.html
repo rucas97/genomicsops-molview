@@ -4,69 +4,44 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <script src="3Dmol-min.js"></script>
 <style>
-  /* Change body to red to prove the HTML is taking up space */
-  html,body{margin:0;height:100%;background:red;overflow:hidden;}
-  #viewer{width:100vw;height:100vh;position:absolute;inset:0}
+  html,body{margin:0;height:100%;background:red;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+  #viewer{width:100vw;height:100vh;position:absolute;inset:0;background:blue;}
+  #message{color:white;font-size:24px;font-family:sans-serif;z-index:999;text-align:center;background:black;padding:20px}
 </style>
 </head>
 <body>
+<div id="message">Testing WebGL...</div>
 <div id="viewer"></div>
 <script>
   function log(msg) {
     if (typeof AndroidLogger !== 'undefined') AndroidLogger.log(msg);
+    document.getElementById('message').innerText = msg;
   }
 
-  log("1. HTML Loaded");
-  
-  if (typeof $3Dmol === 'undefined') {
-    log("ERROR: 3Dmol.js failed to load.");
+  // Test basic WebGL support
+  var canvas = document.createElement('canvas');
+  var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (!gl) {
+    log("ERROR: WebGL is NOT supported on this WebView!");
   } else {
-    log("2. 3Dmol Engine Detected");
+    log("WebGL Supported. Creating viewer...");
     
-    // Force a blue background for the 3D scene
-    var viewer = $3Dmol.createViewer('viewer', { backgroundColor: 'blue' });
-    
-    // Load a test molecule (Ethanol) immediately
-    var testModel = viewer.addModel("CCO", "sdf");
-    viewer.setStyle({}, {stick: {}});
-    viewer.zoomTo();
-    viewer.render();
-    
-    log("3. Test Molecule Rendered");
-
-    // Force a resize after 500ms just in case the Android layout wasn't ready
-    setTimeout(function() {
-      viewer.resize();
+    try {
+      // Create the viewer
+      var viewer = $3Dmol.createViewer('viewer', { backgroundColor: 'blue' });
+      
+      // Hide the black message box so we can see the 3D canvas
+      document.getElementById('message').style.display = 'none';
+      
+      // Add a single red sphere to prove rendering works
+      viewer.addSphere({center: {x:0, y:0, z:0}, radius: 10, color: 'red'});
+      viewer.zoomTo();
       viewer.render();
-      log("4. Forced Resize Complete");
-    }, 500);
-    
-    var currentModel = null;
-
-    function loadModel(data, ext) {
-      log("5. Received data: " + data.length + " chars");
-      try {
-        viewer.removeAllModels();
-        currentModel = viewer.addModel(data, ext);
-        viewer.zoomTo();
-        setRep('cartoon');
-        viewer.resize(); 
-        viewer.render();
-        log("6. Render Complete!");
-      } catch(e) {
-        log("Parse Error: " + e.message);
-      }
-    }
-
-    function setRep(rep) {
-      if (!currentModel) return;
-      var style;
-      if (rep === 'cartoon') style = { cartoon: { color: 'spectrum' } };
-      else if (rep === 'surface') style = { cartoon: { color: 'spectrum' }, surface: { opacity: 0.8, color: 'white' } };
-      else if (rep === 'ballstick') style = { stick: { radius: 0.15 }, sphere: { scale: 0.25 } };
-      else style = { stick: { radius: 0.15 } };
-      viewer.setStyle({}, style);
-      viewer.render();
+      
+      log("Render Test Complete");
+      setTimeout(function() { document.getElementById('message').style.display = 'none'; }, 2000);
+    } catch(e) {
+      log("3Dmol Error: " + e.message);
     }
   }
 </script>

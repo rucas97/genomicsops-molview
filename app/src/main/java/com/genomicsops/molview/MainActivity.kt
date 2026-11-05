@@ -190,8 +190,9 @@ fun ViewerScreen() {
                         }
                         
                         // Use loadDataWithBaseURL to bypass file:// restrictions
-                        val html = ctx.assets.open("viewer.html").bufferedReader().use { it.readText() }
-                        loadDataWithBaseURL("file:///android_asset/", html, "text/html", "UTF-8", null)
+                        settings.allowFileAccessFromFileURLs = true
+                        settings.allowUniversalAccessFromFileURLs = true
+                        loadUrl("file:///android_asset/viewer.html")
                         
                         webViewInstance = this
                     }
