@@ -412,6 +412,3 @@ fun ViewerScreen(incomingUri: Uri?) {
                         Text("Close Structure", color = GenomicsMuted) 
                     }
                 }
-            }
-        }
-    }
