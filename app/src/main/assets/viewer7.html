@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<script src="3Dmol-min.js"></script>
+<style>
+  /* Use fixed positioning to guarantee it fills the WebView */
+  html, body { margin: 0; padding: 0; background: #ff0000; overflow: hidden; width: 100%; height: 100%; }
+  #viewer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0000ff; }
+</style>
+</head>
+<body>
+<div id="viewer"></div>
+<script>
+  function log(msg) {
+    if (typeof AndroidLogger !== 'undefined') AndroidLogger.log(msg);
+  }
+
+  if (typeof $3Dmol === 'undefined') {
+    log("ERROR: 3Dmol.js failed to load.");
+  } else {
+    var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#0000ff' });
+    
+    // Test with a real tiny PDB (Alanine), not a sphere
+    var testPdb = "ATOM      1  N   ALA A   1      11.104   6.134  -6.504  1.00 20.00           N\nATOM      2  CA  ALA A   1      11.639   6.071  -5.147  1.00 20.00           C\nATOM      3  C   ALA A   1      13.149   6.523  -5.174  1.00 20.00           C\nATOM      4  O   ALA A   1      13.711   7.636  -5.174  1.00 20.00           O\nATOM      5  CB  ALA A   1      11.186   4.647  -4.895  1.00 20.00           C\n";
+    var testModel = viewer.addModel(testPdb, 'pdb');
+    viewer.setStyle({}, {stick: {}});
+    viewer.zoomTo();
+    viewer.render();
+    
+    setTimeout(function() {
+        var canvas = document.querySelector('canvas');
+        log("Test PDB Loaded: " + (canvas ? canvas.width + "x" + canvas.height : "None"));
+    }, 1000);
+    
+    var currentModel = null;
+
+    function loadModel(data, ext) {
+      try {
+        viewer.removeAllModels();
+        currentModel = viewer.addModel(data, ext);
+        viewer.zoomTo();
+        setRep('cartoon');
+        viewer.render();
+        log("Render Complete!");
+      } catch(e) {
+        log("Parse Error: " + e.message);
+      }
+    }
+
+    function setRep(rep) {
+      if (!currentModel) return;
+      var style;
+      if (rep === 'cartoon') style = { cartoon: { color: 'spectrum' } };
+      else if (rep === 'surface') style = { cartoon: { color: 'spectrum' }, surface: { opacity: 0.8, color: 'white' } };
+      else if (rep === 'ballstick') style = { stick: { radius: 0.15 }, sphere: { scale: 0.25 } };
+      else style = { stick: { radius: 0.15 } };
+      viewer.setStyle({}, style);
+      viewer.render();
+    }
+  }
+</script>
+</body>
+</html>
