@@ -16,10 +16,9 @@ let currentModel = null;
 
 function loadModel(pdb) {
   viewer.removeAllModels();
-  // 3Dmol can auto-detect pdb, cif, sdf, etc.
   currentModel = viewer.addModel(pdb, 'pdb');
   viewer.zoomTo();
-  setRep('cartoon'); // Default to cartoon
+  setRep('cartoon');
 }
 
 function setRep(rep) {

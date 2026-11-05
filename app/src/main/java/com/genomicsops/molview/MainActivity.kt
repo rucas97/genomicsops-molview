@@ -21,6 +21,7 @@ import com.genomicsops.molview.ui.SplashScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,7 +66,9 @@ fun ViewerScreen() {
                 }
                 if (text != null) {
                     pdbText = text
-                    webViewInstance?.evaluateJavascript("loadModel(\`$text\`)", null)
+                    // Safely escape the PDB string for JavaScript
+                    val safeJsString = JSONObject.quote(text)
+                    webViewInstance?.evaluateJavascript("loadModel($safeJsString)", null)
                 }
                 isLoading = false
             }
@@ -74,7 +77,6 @@ fun ViewerScreen() {
 
     Column(Modifier.fillMaxSize()) {
         if (pdbText == null) {
-            // HOME SCREEN
             Column(
                 Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -87,7 +89,6 @@ fun ViewerScreen() {
                 Text("Accepts PDB, CIF, SDF, MOL2, XYZ", style = MaterialTheme.typography.bodySmall)
             }
         } else {
-            // VIEWER SCREEN
             Row(
                 Modifier.fillMaxWidth().padding(8.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
