@@ -6,27 +6,37 @@
 <style>
   html,body{margin:0;height:100%;background:#06080A;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#8B949E;font-family:sans-serif}
   #viewer{width:100vw;height:100vh;position:absolute;inset:0}
-  #error{position:relative;z-index:10;text-align:center}
 </style>
 </head>
 <body>
-<div id="error">Loading Engine...</div>
 <div id="viewer"></div>
 <script>
+  alert("1. HTML Loaded");
+  
   if (typeof $3Dmol === 'undefined') {
-    document.getElementById('error').innerText = "ERROR: 3Dmol.js failed to load.\nCheck your network or the file size.";
+    alert("ERROR: 3Dmol.js failed to load. File missing or blocked by Android.");
   } else {
-    document.getElementById('error').style.display = 'none';
-    var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A' });
+    alert("2. 3Dmol Engine Detected");
+    
+    try {
+      var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A' });
+      alert("3. WebGL Canvas Created");
+    } catch(e) {
+      alert("WebGL Error: " + e.message);
+    }
+    
     var currentModel = null;
 
     function loadModel(data, ext) {
+      alert("4. Received data: " + data.length + " chars, ext: " + ext);
       try {
         viewer.removeAllModels();
-        // Pass the extension so 3Dmol knows how to parse CIF vs PDB
         currentModel = viewer.addModel(data, ext);
         viewer.zoomTo();
         setRep('cartoon');
+        viewer.resize(); // Force resize just in case
+        viewer.render();
+        alert("5. Render Complete!");
       } catch(e) {
         alert("Parse Error: " + e.message);
       }

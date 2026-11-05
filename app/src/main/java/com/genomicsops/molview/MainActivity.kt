@@ -205,6 +205,8 @@ fun ViewerScreen() {
                         settings.domStorageEnabled = true
                         settings.allowFileAccess = true
                         settings.allowContentAccess = true
+                        settings.allowFileAccessFromFileURLs = true
+                        settings.allowUniversalAccessFromFileURLs = true
                         
                         webViewClient = object : WebViewClient() {
                             override fun onPageFinished(view: WebView?, url: String?) {
@@ -227,7 +229,6 @@ fun ViewerScreen() {
                 TextButton(
                     onClick = { 
                         pdbText = null 
-                        webViewInstance?.loadUrl("about:blank")
                         isPageReady = false
                         webViewInstance?.loadUrl("file:///android_asset/viewer.html")
                     },
