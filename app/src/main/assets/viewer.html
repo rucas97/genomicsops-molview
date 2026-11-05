@@ -30,6 +30,7 @@
   var currentRep = 'cartoon';
   var currentColor = 'spectrum';
   var isSpinning = false;
+  var showHydrogens = true;
 
   function loadModel(data, ext) {
     try {
@@ -37,6 +38,7 @@
       viewer.removeAllSurfaces();
       viewer.removeAllShapes();
       isSpinning = false;
+      showHydrogens = true;
       currentModel = viewer.addModel(data, ext);
       viewer.zoomTo();
       setRep(currentRep);
@@ -66,18 +68,17 @@
 
     if (rep === 'cartoon') {
       viewer.setStyle({}, getCartoonStyle());
-      viewer.render();
     } else if (rep === 'surface') {
       viewer.setStyle({}, getCartoonStyle());
       viewer.addSurface($3Dmol.SurfaceType.VDW, { opacity: 0.85, color: 'white' }, { model: currentModel });
-      viewer.render();
     } else if (rep === 'ballstick') {
       viewer.setStyle({}, Object.assign({}, getStickStyle(), getSphereStyle()));
-      viewer.render();
     } else if (rep === 'stick') {
       viewer.setStyle({}, getStickStyle());
-      viewer.render();
     }
+    
+    if (!showHydrogens) viewer.setStyle({ elem: 'H' }, {});
+    viewer.render();
   }
 
   function setColor(scheme) {
@@ -88,6 +89,21 @@
   function toggleSpin() {
     isSpinning = !isSpinning;
     viewer.spin(isSpinning ? 'y' : false);
+  }
+
+  function toggleHydrogens() {
+    showHydrogens = !showHydrogens;
+    if (!showHydrogens) viewer.setStyle({ elem: 'H' }, {});
+    else setRep(currentRep);
+    viewer.render();
+  }
+
+  function resetView() {
+    if (currentModel) {
+      viewer.removeAllShapes();
+      viewer.zoomTo();
+      viewer.render();
+    }
   }
 
   function rattle() {
@@ -101,21 +117,13 @@
     }
   }
 
-  // NEW: Highlight a specific residue from the FASTA strip
   function highlightResidue(chain, resi) {
     if (!currentModel) return;
     viewer.removeAllShapes();
-    
     var sel = { chain: chain, resi: resi };
-    
-    // Add a stick highlight in bright red
     viewer.addStyle(sel, { stick: { colorscheme: 'redCarbon', radius: 0.3 } });
-    
-    // Zoom the camera to it
     viewer.zoomTo(sel, 800);
     viewer.render();
-    
-    if (typeof AndroidLogger !== 'undefined') AndroidLogger.log("Zoomed to residue " + resi);
   }
 </script>
 </body>
