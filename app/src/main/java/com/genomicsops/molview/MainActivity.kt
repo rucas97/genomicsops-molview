@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -91,6 +92,7 @@ fun ViewerScreen() {
     var isLoading by remember { mutableStateOf(false) }
     
     var showColorMenu by remember { mutableStateOf(false) }
+    var isSpinning by remember { mutableStateOf(false) }
 
     fun injectModel(text: String, ext: String) {
         val safeJsString = JSONObject.quote(text)
@@ -248,8 +250,15 @@ fun ViewerScreen() {
                         // Action Row
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                             // Spin
-                            IconButton(onClick = { webViewInstance?.evaluateJavascript("toggleSpin()", null) }) {
-                                Icon(Icons.Default.Refresh, contentDescription = "Spin", tint = GenomicsTeal)
+                            IconButton(onClick = { 
+                                isSpinning = !isSpinning
+                                webViewInstance?.evaluateJavascript("toggleSpin()", null) 
+                            }) {
+                                Icon(
+                                    imageVector = if (isSpinning) Icons.Default.Pause else Icons.Default.Refresh, 
+                                    contentDescription = "Spin", 
+                                    tint = GenomicsTeal
+                                )
                             }
                             // Rattle
                             IconButton(onClick = { webViewInstance?.evaluateJavascript("rattle()", null) }) {
@@ -284,6 +293,7 @@ fun ViewerScreen() {
                     onClick = { 
                         pdbText = null 
                         isPageReady = false
+                        isSpinning = false
                         webViewInstance?.reload()
                     },
                     modifier = Modifier.align(Alignment.CenterHorizontally).background(GenomicsSurface.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
