@@ -175,7 +175,7 @@ fun ViewerScreen() {
                         }
                         
                         // Load the NEW viewer5.html
-                        loadUrl("file:///android_asset/viewer7.html?v=" + System.currentTimeMillis())
+                        loadUrl("file:///android_asset/viewer.html?v=" + System.currentTimeMillis())
                         webViewInstance = this
                     }
                 },
