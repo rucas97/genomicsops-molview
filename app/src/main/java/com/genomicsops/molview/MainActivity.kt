@@ -160,6 +160,7 @@ fun ViewerScreen() {
                 factory = { ctx ->
                     WebView(ctx).apply {
                         setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+                        settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.allowFileAccess = true
@@ -192,8 +193,9 @@ fun ViewerScreen() {
                         // Use loadDataWithBaseURL to bypass file:// restrictions
                         settings.allowFileAccessFromFileURLs = true
                         settings.allowUniversalAccessFromFileURLs = true
-                        loadUrl("file:///android_asset/viewer.html")
+                        loadUrl("file:///android_asset/viewer2.html?v=" + System.currentTimeMillis())
                         
+                        clearCache(true)
                         webViewInstance = this
                     }
                 },
