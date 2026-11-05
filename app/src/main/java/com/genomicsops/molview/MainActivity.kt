@@ -1,6 +1,5 @@
 package com.genomicsops.molview
 
-import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Bundle
 import android.webkit.WebView
@@ -39,14 +38,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun ViewerScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
     var pdbText by remember { mutableStateOf<String?>(null) }
-    var webView by remember { mutableStateOf<WebView?>(null) }
+    var webViewInstance by remember { mutableStateOf<WebView?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
     val filePicker = rememberLauncherForActivityResult(
@@ -62,8 +60,7 @@ fun ViewerScreen() {
             }
             if (text != null) {
                 pdbText = text
-                // Send data to JS
-                webView?.evaluateJavascript("loadModel(`$text`)", null)
+                webViewInstance?.evaluateJavascript("loadModel(`$text`)", null)
             }
             isLoading = false
         }
@@ -71,7 +68,6 @@ fun ViewerScreen() {
 
     Column(Modifier.fillMaxSize()) {
         if (pdbText == null) {
-            // --- HOME SCREEN ---
             Column(
                 Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -84,14 +80,13 @@ fun ViewerScreen() {
                 Text("Accepts PDB, CIF, SDF, MOL2, XYZ", style = MaterialTheme.typography.bodySmall)
             }
         } else {
-            // --- VIEWER SCREEN ---
             Row(
                 Modifier.fillMaxWidth().padding(8.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 listOf("cartoon", "surface", "ballstick", "stick").forEach { rep ->
                     OutlinedButton(
-                        onClick = { webView?.evaluateJavascript("setRep('$rep')", null) },
+                        onClick = { webViewInstance?.evaluateJavascript("setRep('$rep')", null) },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                     ) { Text(rep, style = MaterialTheme.typography.labelSmall) }
                 }
@@ -100,11 +95,12 @@ fun ViewerScreen() {
             AndroidView(
                 factory = { ctx ->
                     WebView(ctx).apply {
+                        @Suppress("SetJavaScriptEnabled")
                         settings.javaScriptEnabled = true
                         settings.allowFileAccess = true
                         webViewClient = WebViewClient()
                         loadUrl("file:///android_asset/viewer.html")
-                        webView = this
+                        webViewInstance = this
                     }
                 },
                 modifier = Modifier.weight(1f)
@@ -113,7 +109,7 @@ fun ViewerScreen() {
             Button(
                 onClick = { 
                     pdbText = null 
-                    webView?.loadUrl("about:blank")
+                    webViewInstance?.loadUrl("about:blank")
                 },
                 modifier = Modifier.align(Alignment.CenterHorizontally).padding(8.dp)
             ) { Text("Close") }
