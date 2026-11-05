@@ -32,6 +32,15 @@
   var isSpinning = false;
   var showHydrogens = true;
 
+  // Deselect when clicking empty space
+  viewer.setClickable({}, true, function(atom) {
+    if (!atom) {
+      viewer.removeAllShapes();
+      viewer.zoomTo();
+      viewer.render();
+    }
+  });
+
   function loadModel(data, ext) {
     try {
       viewer.removeAllModels();

@@ -210,6 +210,9 @@ fun ViewerScreen(incomingUri: Uri?) {
                         Text(if (isLoading) "Parsing..." else "Select 3D File", color = GenomicsText, fontWeight = FontWeight.Medium)
                     }
                 }
+                Spacer(Modifier.height(48.dp))
+                Text("GenomicsOps • Molecular Suite", color = GenomicsMuted.copy(alpha = 0.5f), fontSize = 12.sp, letterSpacing = 2.sp)
+                Text("v1.0.0", color = GenomicsMuted.copy(alpha = 0.3f), fontSize = 10.sp)
             }
         } else {
             AndroidView(
@@ -335,6 +338,111 @@ fun ViewerScreen(incomingUri: Uri?) {
                         ) {
                             if (fastaResidues.isEmpty()) {
                                 item { Text("SEQ: Not available (Try a .pdb file)", color = GenomicsMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
+                            } else {
+                                item { Text("SEQ: ", color = GenomicsCyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold) }
+                                items(fastaResidues.size) { index ->
+                                    val res = fastaResidues[index]
+                                    Text(
+                                        text = get1LetterCode(res.name).toString(),
+                                        color = getSpectrumColor(index, fastaResidues.size),
+                                        fontSize = 14.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier
+                                            .padding(horizontal = 2.dp)
+                                            .clickable {
+                                                val chainId = res.chain?.id ?: 'A'
+                                                webViewInstance?.evaluateJavascript("highlightResidue('$chainId', ${res.number})", null)
+                                            }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+
+                    TextButton(
+                        onClick = { 
+                            pdbText = null 
+                            fastaResidues = emptyList()
+                            isSpinning = false
+                            isPageReady = false
+                            webViewInstance?.reload()
+                        },
+                        modifier = Modifier.align(Alignment.CenterHorizontally).background(GenomicsSurface.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
+                    ) { 
+                        Text("Close Structure", color = GenomicsMuted) 
+                    }
+                }
+            }
+        }
+    }
+}
+                
+                // Settings Bottom Sheet
+                if (showSettings) {
+                    ModalBottomSheet(
+                        onDismissRequest = { showSettings = false },
+                        containerColor = GenomicsSurface
+                    ) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                            Text("View Settings", color = GenomicsText, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(16.dp))
+                            
+                            Text("Color Scheme", color = GenomicsMuted, fontSize = 14.sp)
+                            Spacer(Modifier.height(8.dp))
+                            
+                            // FIXED: Using LazyRow of FilterChips to prevent ugly text wrapping
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                val colors = listOf("spectrum", "chain", "ssPyMOL", "greenCarbon", "chainHetatm")
+                                items(colors.size) { index ->
+                                    val color = colors[index]
+                                    FilterChip(
+                                        selected = false,
+                                        onClick = { webViewInstance?.evaluateJavascript("setColor('$color')", null) },
+                                        label = { Text(color, fontSize = 12.sp) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            labelColor = GenomicsCyan,
+                                            containerColor = GenomicsDark
+                                        ),
+                                        border = FilterChipDefaults.filterChipBorder(
+                                            enabled = true, selected = false, borderColor = GenomicsCyan.copy(alpha = 0.3f)
+                                        )
+                                    )
+                                }
+                            }
+                            
+                            Spacer(Modifier.height(24.dp))
+                            Text("Tools", color = GenomicsMuted, fontSize = 14.sp)
+                            Spacer(Modifier.height(8.dp))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = { webViewInstance?.evaluateJavascript("resetView()", null) },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)
+                                ) { Text("Reset View", color = GenomicsText) }
+                                
+                                Button(
+                                    onClick = { webViewInstance?.evaluateJavascript("toggleHydrogens()", null) },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)
+                                ) { Text("Toggle H", color = GenomicsText) }
+                            }
+                            Spacer(Modifier.height(48.dp))
+                        }
+                    }
+                }
+
+                // Bottom Section: FASTA + Close Button
+                Column(Modifier.fillMaxWidth()) {
+                    Surface(color = Color.White.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp), border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))) {
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth().height(40.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (fastaResidues.isEmpty()) {
+                                item { Text("SEQ: Not available", color = GenomicsMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
                             } else {
                                 item { Text("SEQ: ", color = GenomicsCyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold) }
                                 items(fastaResidues.size) { index ->
