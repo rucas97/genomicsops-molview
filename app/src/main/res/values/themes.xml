@@ -1,0 +1,6 @@
+<resources>
+    <style name="Theme.MolView" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#111111</item>
+        <item name="android:navigationBarColor">#111111</item>
+    </style>
+</resources>
