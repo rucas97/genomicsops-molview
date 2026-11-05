@@ -146,7 +146,7 @@ fun ViewerScreen() {
             AndroidView(
                 factory = { ctx ->
                     WebView(ctx).apply {
-                        setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+                        setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.allowFileAccess = true
@@ -175,7 +175,7 @@ fun ViewerScreen() {
                         }
                         
                         // Load the NEW viewer5.html
-                        loadUrl("file:///android_asset/viewer5.html?v=" + System.currentTimeMillis())
+                        loadUrl("file:///android_asset/viewer6.html?v=" + System.currentTimeMillis())
                         webViewInstance = this
                     }
                 },
