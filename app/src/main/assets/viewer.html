@@ -39,6 +39,13 @@
       currentModel = viewer.addModel(data, ext);
       viewer.zoomTo();
       setRep(currentRep);
+      
+      // Fix the "renders nothing until you click" bug
+      setTimeout(function() {
+        viewer.resize();
+        viewer.render();
+      }, 150);
+      
     } catch(e) {
       if (typeof AndroidLogger !== 'undefined') AndroidLogger.log("Parse Error: " + e.message);
     }
@@ -49,19 +56,34 @@
     if (!currentModel) return;
     viewer.removeAllSurfaces();
     
-    // Use colorscheme: instead of color: to prevent black screens
+    // Helper function to get the correct style object based on color
+    function getCartoonStyle() {
+      if (currentColor === 'spectrum') return { cartoon: { color: 'spectrum' } };
+      return { cartoon: { colorscheme: currentColor } };
+    }
+    
+    function getStickStyle() {
+      if (currentColor === 'spectrum') return { stick: { radius: 0.15, color: 'spectrum' } };
+      return { stick: { radius: 0.15, colorscheme: currentColor } };
+    }
+    
+    function getSphereStyle() {
+      if (currentColor === 'spectrum') return { sphere: { scale: 0.25, color: 'spectrum' } };
+      return { sphere: { scale: 0.25, colorscheme: currentColor } };
+    }
+
     if (rep === 'cartoon') {
-      viewer.setStyle({}, { cartoon: { colorscheme: currentColor } });
+      viewer.setStyle({}, getCartoonStyle());
       viewer.render();
     } else if (rep === 'surface') {
-      viewer.setStyle({}, { cartoon: { colorscheme: currentColor } });
+      viewer.setStyle({}, getCartoonStyle());
       viewer.addSurface($3Dmol.SurfaceType.VDW, { opacity: 0.85, color: 'white' }, { model: currentModel });
       viewer.render();
     } else if (rep === 'ballstick') {
-      viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: currentColor }, sphere: { scale: 0.25, colorscheme: currentColor } });
+      viewer.setStyle({}, Object.assign({}, getStickStyle(), getSphereStyle()));
       viewer.render();
     } else if (rep === 'stick') {
-      viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: currentColor } });
+      viewer.setStyle({}, getStickStyle());
       viewer.render();
     }
   }

@@ -254,7 +254,7 @@ fun ViewerScreen() {
                                     Icon(Icons.Default.Menu, contentDescription = "Colors", tint = GenomicsTeal)
                                 }
                                 DropdownMenu(expanded = showColorMenu, onDismissRequest = { showColorMenu = false }) {
-                                    listOf("spectrum", "chain", "ssPyMOL", "greenCarbon", "residue").forEach { color ->
+                                    listOf("spectrum", "chain", "ssPyMOL", "greenCarbon", "chainHetatm").forEach { color ->
                                         DropdownMenuItem(
                                             text = { Text(color, color = GenomicsText) },
                                             onClick = {
