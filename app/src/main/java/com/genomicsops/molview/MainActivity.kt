@@ -1,10 +1,14 @@
 package com.genomicsops.molview
 
+import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -25,7 +29,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -68,6 +71,7 @@ fun getFileName(context: android.content.Context, uri: Uri): String? {
     return name
 }
 
+@SuppressLint("JavascriptInterface")
 @Composable
 fun ViewerScreen() {
     val context = LocalContext.current
@@ -98,14 +102,9 @@ fun ViewerScreen() {
                 if (text != null) {
                     val name = getFileName(context, uri) ?: "file.pdb"
                     val ext = name.substringAfterLast('.', "pdb").lowercase()
-                    
                     pdbText = text
                     fileExt = ext
-                    
-                    // If page is already loaded, inject immediately
-                    if (isPageReady) {
-                        injectModel(text, ext)
-                    }
+                    if (isPageReady) injectModel(text, ext)
                 }
                 isLoading = false
             }
@@ -114,31 +113,17 @@ fun ViewerScreen() {
 
     Column(Modifier.fillMaxSize().background(GenomicsDark)) {
         if (pdbText == null) {
-            // --- CREATIVE HOME SCREEN ---
+            // --- HOME SCREEN ---
             Column(
                 Modifier.fillMaxSize().padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.logo),
-                    contentDescription = "Logo",
-                    modifier = Modifier.size(100.dp)
-                )
+                Image(painter = painterResource(id = R.drawable.logo), contentDescription = "Logo", modifier = Modifier.size(100.dp))
                 Spacer(Modifier.height(24.dp))
-                Text(
-                    "MolView", 
-                    color = GenomicsCyan, 
-                    fontSize = 32.sp, 
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "Structure Visualization", 
-                    color = GenomicsMuted, 
-                    fontSize = 16.sp
-                )
+                Text("MolView", color = GenomicsCyan, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                Text("Structure Visualization", color = GenomicsMuted, fontSize = 16.sp)
                 Spacer(Modifier.height(64.dp))
-
                 Card(
                     onClick = { filePicker.launch("*/*") },
                     modifier = Modifier.fillMaxWidth().height(160.dp),
@@ -146,53 +131,26 @@ fun ViewerScreen() {
                     border = BorderStroke(1.dp, Brush.linearGradient(listOf(GenomicsCyan, GenomicsTeal))),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Column(
-                        Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add, 
-                            contentDescription = "Add",
-                            tint = GenomicsCyan,
-                            modifier = Modifier.size(48.dp)
-                        )
+                    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                        Icon(imageVector = Icons.Default.Add, contentDescription = "Add", tint = GenomicsCyan, modifier = Modifier.size(48.dp))
                         Spacer(Modifier.height(12.dp))
-                        Text(
-                            if (isLoading) "Parsing..." else "Tap to Open Structure",
-                            color = GenomicsText,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Text(if (isLoading) "Parsing..." else "Tap to Open Structure", color = GenomicsText, fontWeight = FontWeight.Medium)
                         Spacer(Modifier.height(4.dp))
-                        Text(
-                            "PDB • CIF • MOL2 • SDF",
-                            color = GenomicsMuted,
-                            fontSize = 12.sp
-                        )
+                        Text("PDB • CIF • MOL2 • SDF", color = GenomicsMuted, fontSize = 12.sp)
                     }
                 }
             }
         } else {
             // --- VIEWER SCREEN ---
             Surface(color = GenomicsSurface, modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    Modifier.fillMaxWidth().padding(8.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
+                Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                     listOf("cartoon", "surface", "ballstick", "stick").forEach { rep ->
                         FilterChip(
                             selected = false,
                             onClick = { webViewInstance?.evaluateJavascript("setRep('$rep')", null) },
                             label = { Text(rep, fontSize = 12.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                labelColor = GenomicsCyan,
-                                containerColor = Color.Transparent
-                            ),
-                            border = FilterChipDefaults.filterChipBorder(
-                                enabled = true,
-                                selected = false,
-                                borderColor = GenomicsCyan.copy(alpha = 0.5f)
-                            )
+                            colors = FilterChipDefaults.filterChipColors(labelColor = GenomicsCyan, containerColor = Color.Transparent),
+                            border = FilterChipDefaults.filterChipBorder(enabled = true, selected = false, borderColor = GenomicsCyan.copy(alpha = 0.5f))
                         )
                     }
                 }
@@ -208,17 +166,32 @@ fun ViewerScreen() {
                         settings.allowFileAccessFromFileURLs = true
                         settings.allowUniversalAccessFromFileURLs = true
                         
+                        // THIS IS THE MISSING PIECE FOR ALERTS
+                        webChromeClient = WebChromeClient()
+                        
+                        // This allows JS to send messages to our Toast
+                        addJavascriptInterface(object {
+                            @JavascriptInterface
+                            fun log(msg: String) {
+                                android.util.Log.d("MolViewJS", msg)
+                                (ctx as? android.app.Activity)?.runOnUiThread {
+                                    Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }, "AndroidLogger")
+
                         webViewClient = object : WebViewClient() {
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 super.onPageFinished(view, url)
                                 isPageReady = true
-                                // If the user picked a file before the page finished loading
-                                if (pdbText != null) {
-                                    injectModel(pdbText!!, fileExt)
-                                }
+                                if (pdbText != null) injectModel(pdbText!!, fileExt)
                             }
                         }
-                        loadUrl("file:///android_asset/viewer.html")
+                        
+                        // Use loadDataWithBaseURL to bypass file:// restrictions
+                        val html = ctx.assets.open("viewer.html").bufferedReader().use { it.readText() }
+                        loadDataWithBaseURL("file:///android_asset/", html, "text/html", "UTF-8", null)
+                        
                         webViewInstance = this
                     }
                 },
@@ -230,12 +203,10 @@ fun ViewerScreen() {
                     onClick = { 
                         pdbText = null 
                         isPageReady = false
-                        webViewInstance?.loadUrl("file:///android_asset/viewer.html")
+                        webViewInstance?.reload()
                     },
                     modifier = Modifier.fillMaxWidth().padding(8.dp)
-                ) { 
-                    Text("Close Structure", color = GenomicsMuted) 
-                }
+                ) { Text("Close Structure", color = GenomicsMuted) }
             }
         }
     }
