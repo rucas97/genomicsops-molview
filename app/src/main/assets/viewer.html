@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<script src="3Dmol-min.js"></script>
+<style>
+  html,body{margin:0;height:100%;background:#06080A;overflow:hidden}
+  #viewer{width:100vw;height:100vh}
+</style>
+</head>
+<body>
+<div id="viewer"></div>
+<script>
+let viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A' });
+let currentModel = null;
+
+function loadModel(pdb) {
+  viewer.removeAllModels();
+  // 3Dmol can auto-detect pdb, cif, sdf, etc.
+  currentModel = viewer.addModel(pdb, 'pdb');
+  viewer.zoomTo();
+  setRep('cartoon'); // Default to cartoon
+}
+
+function setRep(rep) {
+  if (!currentModel) return;
+  let style;
+  if (rep === 'cartoon') style = { cartoon: { color: 'spectrum' } };
+  else if (rep === 'surface') style = { cartoon: { color: 'spectrum' }, surface: { opacity: 0.8, color: 'white' } };
+  else if (rep === 'ballstick') style = { stick: { radius: 0.15 }, sphere: { scale: 0.25 } };
+  else style = { stick: { radius: 0.15 } };
+  viewer.setStyle({}, style);
+  viewer.render();
+}
+</script>
+</body>
+</html>
