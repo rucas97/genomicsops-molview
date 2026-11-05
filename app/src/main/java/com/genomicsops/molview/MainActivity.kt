@@ -159,6 +159,7 @@ fun ViewerScreen() {
             AndroidView(
                 factory = { ctx ->
                     WebView(ctx).apply {
+                        setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.allowFileAccess = true
@@ -195,7 +196,7 @@ fun ViewerScreen() {
                         webViewInstance = this
                     }
                 },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).fillMaxWidth()
             )
 
             Surface(color = GenomicsSurface, modifier = Modifier.fillMaxWidth()) {

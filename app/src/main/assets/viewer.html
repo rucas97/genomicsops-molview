@@ -4,7 +4,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <script src="3Dmol-min.js"></script>
 <style>
-  html,body{margin:0;height:100%;background:#06080A;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#8B949E;font-family:sans-serif}
+  /* Change body to red to prove the HTML is taking up space */
+  html,body{margin:0;height:100%;background:red;overflow:hidden;}
   #viewer{width:100vw;height:100vh;position:absolute;inset:0}
 </style>
 </head>
@@ -13,27 +14,37 @@
 <script>
   function log(msg) {
     if (typeof AndroidLogger !== 'undefined') AndroidLogger.log(msg);
-    else alert(msg);
   }
 
   log("1. HTML Loaded");
   
   if (typeof $3Dmol === 'undefined') {
-    log("ERROR: 3Dmol.js failed to load. File missing or blocked.");
+    log("ERROR: 3Dmol.js failed to load.");
   } else {
     log("2. 3Dmol Engine Detected");
     
-    try {
-      var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A' });
-      log("3. WebGL Canvas Created");
-    } catch(e) {
-      log("WebGL Error: " + e.message);
-    }
+    // Force a blue background for the 3D scene
+    var viewer = $3Dmol.createViewer('viewer', { backgroundColor: 'blue' });
+    
+    // Load a test molecule (Ethanol) immediately
+    var testModel = viewer.addModel("CCO", "sdf");
+    viewer.setStyle({}, {stick: {}});
+    viewer.zoomTo();
+    viewer.render();
+    
+    log("3. Test Molecule Rendered");
+
+    // Force a resize after 500ms just in case the Android layout wasn't ready
+    setTimeout(function() {
+      viewer.resize();
+      viewer.render();
+      log("4. Forced Resize Complete");
+    }, 500);
     
     var currentModel = null;
 
     function loadModel(data, ext) {
-      log("4. Received data: " + data.length + " chars");
+      log("5. Received data: " + data.length + " chars");
       try {
         viewer.removeAllModels();
         currentModel = viewer.addModel(data, ext);
@@ -41,7 +52,7 @@
         setRep('cartoon');
         viewer.resize(); 
         viewer.render();
-        log("5. Render Complete!");
+        log("6. Render Complete!");
       } catch(e) {
         log("Parse Error: " + e.message);
       }
