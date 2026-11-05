@@ -13,6 +13,8 @@
 <script>
   var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A' });
   var currentModel = null;
+  var currentRep = 'cartoon';
+  var currentColor = 'spectrum';
 
   function loadModel(data, ext) {
     try {
@@ -20,24 +22,23 @@
       viewer.removeAllSurfaces();
       currentModel = viewer.addModel(data, ext);
       viewer.zoomTo();
-      setRep('cartoon');
+      setRep(currentRep);
     } catch(e) {
       if (typeof AndroidLogger !== 'undefined') AndroidLogger.log("Parse Error: " + e.message);
     }
   }
 
   function setRep(rep) {
+    currentRep = rep;
     if (!currentModel) return;
-    
-    // Clear previous surfaces and styles
     viewer.removeAllSurfaces();
     
     if (rep === 'cartoon') {
-      viewer.setStyle({}, { cartoon: { color: 'spectrum' } });
+      viewer.setStyle({}, { cartoon: { color: currentColor } });
       viewer.render();
     } 
     else if (rep === 'surface') {
-      viewer.setStyle({}, { cartoon: { color: 'spectrum' } });
+      viewer.setStyle({}, { cartoon: { color: currentColor } });
       viewer.addSurface($3Dmol.SurfaceType.VDW, { opacity: 0.85, color: 'white' }, { model: currentModel });
       viewer.render();
     } 
@@ -49,6 +50,40 @@
       viewer.setStyle({}, { stick: { radius: 0.15 } });
       viewer.render();
     }
+  }
+
+  function setColor(scheme) {
+    currentColor = scheme;
+    if (!currentModel) return;
+    if (currentRep === 'cartoon' || currentRep === 'surface') {
+      viewer.setStyle({}, { cartoon: { color: scheme } });
+      viewer.render();
+    }
+  }
+
+  function toggleSpin() {
+    if (viewer.spin) {
+      // 3Dmol has a built-in spin toggle
+      viewer.spin('y'); 
+    }
+  }
+
+  function rattle() {
+    if (!currentModel) return;
+    if (typeof AndroidLogger !== 'undefined') AndroidLogger.vibrate();
+    
+    var count = 0;
+    var interval = setInterval(function() {
+      // Rapidly rotate the molecule a tiny bit in random directions
+      var dx = (Math.random() - 0.5) * 3;
+      var dy = (Math.random() - 0.5) * 3;
+      viewer.rotate(dx, dy, 0);
+      viewer.render();
+      count++;
+      if (count > 15) {
+        clearInterval(interval);
+      }
+    }, 40);
   }
 </script>
 </body>
