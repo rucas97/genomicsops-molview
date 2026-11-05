@@ -6,20 +6,39 @@
 <style>
   html, body { margin: 0; padding: 0; background: #06080A; overflow: hidden; width: 100%; height: 100%; }
   #viewer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #06080A; }
+  
+  /* CSS Shake Animation for Rattle */
+  @keyframes shake {
+    0% { transform: translate(2px, 1px) rotate(0deg); }
+    10% { transform: translate(-2px, -3px) rotate(-1deg); }
+    20% { transform: translate(-4px, 0px) rotate(1deg); }
+    30% { transform: translate(4px, 3px) rotate(0deg); }
+    40% { transform: translate(2px, -2px) rotate(1deg); }
+    50% { transform: translate(-2px, 3px) rotate(-1deg); }
+    60% { transform: translate(-4px, 2px) rotate(0deg); }
+    70% { transform: translate(4px, 2px) rotate(-1deg); }
+    80% { transform: translate(-2px, -2px) rotate(1deg); }
+    90% { transform: translate(2px, 3px) rotate(0deg); }
+    100% { transform: translate(2px, -3px) rotate(-1deg); }
+  }
+  .rattling { animation: shake 0.4s; animation-iteration-count: 2; }
 </style>
 </head>
 <body>
 <div id="viewer"></div>
 <script>
-  var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A' });
+  // antialias: false heavily improves spin performance on phones
+  var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A', antialias: false });
   var currentModel = null;
   var currentRep = 'cartoon';
   var currentColor = 'spectrum';
+  var isSpinning = false;
 
   function loadModel(data, ext) {
     try {
       viewer.removeAllModels();
       viewer.removeAllSurfaces();
+      isSpinning = false;
       currentModel = viewer.addModel(data, ext);
       viewer.zoomTo();
       setRep(currentRep);
@@ -62,28 +81,22 @@
   }
 
   function toggleSpin() {
-    if (viewer.spin) {
-      // 3Dmol has a built-in spin toggle
-      viewer.spin('y'); 
-    }
+    isSpinning = !isSpinning;
+    viewer.spin(isSpinning ? 'y' : false);
   }
 
   function rattle() {
-    if (!currentModel) return;
+    // 1. Trigger Vibration
     if (typeof AndroidLogger !== 'undefined') AndroidLogger.vibrate();
     
-    var count = 0;
-    var interval = setInterval(function() {
-      // Rapidly rotate the molecule a tiny bit in random directions
-      var dx = (Math.random() - 0.5) * 3;
-      var dy = (Math.random() - 0.5) * 3;
-      viewer.rotate(dx, dy, 0);
-      viewer.render();
-      count++;
-      if (count > 15) {
-        clearInterval(interval);
-      }
-    }, 40);
+    // 2. Trigger CSS Shake
+    var canvas = document.querySelector('canvas');
+    if (canvas) {
+      canvas.classList.remove('rattling');
+      void canvas.offsetWidth; // Trigger reflow to restart animation
+      canvas.classList.add('rattling');
+      setTimeout(function() { canvas.classList.remove('rattling'); }, 800);
+    }
   }
 </script>
 </body>
