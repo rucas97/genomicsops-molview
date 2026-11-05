@@ -6,8 +6,6 @@
 <style>
   html, body { margin: 0; padding: 0; background: #06080A; overflow: hidden; width: 100%; height: 100%; }
   #viewer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #06080A; }
-  
-  /* CSS Shake Animation for Rattle */
   @keyframes shake {
     0% { transform: translate(2px, 1px) rotate(0deg); }
     10% { transform: translate(-2px, -3px) rotate(-1deg); }
@@ -27,7 +25,6 @@
 <body>
 <div id="viewer"></div>
 <script>
-  // antialias: false heavily improves spin performance on phones
   var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A', antialias: false });
   var currentModel = null;
   var currentRep = 'cartoon';
@@ -51,21 +48,17 @@
     currentRep = rep;
     if (!currentModel) return;
     viewer.removeAllSurfaces();
-    
     if (rep === 'cartoon') {
       viewer.setStyle({}, { cartoon: { color: currentColor } });
       viewer.render();
-    } 
-    else if (rep === 'surface') {
+    } else if (rep === 'surface') {
       viewer.setStyle({}, { cartoon: { color: currentColor } });
       viewer.addSurface($3Dmol.SurfaceType.VDW, { opacity: 0.85, color: 'white' }, { model: currentModel });
       viewer.render();
-    } 
-    else if (rep === 'ballstick') {
+    } else if (rep === 'ballstick') {
       viewer.setStyle({}, { stick: { radius: 0.15 }, sphere: { scale: 0.25 } });
       viewer.render();
-    } 
-    else if (rep === 'stick') {
+    } else if (rep === 'stick') {
       viewer.setStyle({}, { stick: { radius: 0.15 } });
       viewer.render();
     }
@@ -86,14 +79,11 @@
   }
 
   function rattle() {
-    // 1. Trigger Vibration
     if (typeof AndroidLogger !== 'undefined') AndroidLogger.vibrate();
-    
-    // 2. Trigger CSS Shake
     var canvas = document.querySelector('canvas');
     if (canvas) {
       canvas.classList.remove('rattling');
-      void canvas.offsetWidth; // Trigger reflow to restart animation
+      void canvas.offsetWidth;
       canvas.classList.add('rattling');
       setTimeout(function() { canvas.classList.remove('rattling'); }, 800);
     }

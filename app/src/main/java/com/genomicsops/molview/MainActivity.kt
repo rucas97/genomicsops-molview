@@ -166,7 +166,7 @@ fun ViewerScreen() {
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { loadDefault("1crn.pdb") }, modifier = Modifier.weight(1f)) { Text("Crambin") }
-                    Button(onClick = { loadDefault("4hhb.pdb") }, modifier = Modifier.weight(1f)) { Text("Hemoglobin") }
+                    Button(onClick = { loadDefault("1ycr.pdb") }, modifier = Modifier.weight(1f)) { Text("MDM2") }
                 }
                 Spacer(Modifier.height(32.dp))
                 Text("Or Load Your Own", color = GenomicsMuted, fontSize = 14.sp, modifier = Modifier.align(Alignment.Start))
