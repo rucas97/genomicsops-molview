@@ -21,13 +21,10 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,10 +33,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.genomicsops.molview.mol.PdbParser
+import com.genomicsops.molview.mol.Residue
 import com.genomicsops.molview.ui.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -61,22 +61,31 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppRoot() {
     var showSplash by remember { mutableStateOf(true) }
-    if (showSplash) {
-        SplashScreen { showSplash = false }
-    } else {
-        ViewerScreen()
-    }
+    if (showSplash) SplashScreen { showSplash = false } else ViewerScreen()
 }
 
 fun getFileName(context: Context, uri: Uri): String? {
     var name: String? = null
     context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
         val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-        if (cursor.moveToFirst() && nameIndex != -1) {
-            name = cursor.getString(nameIndex)
-        }
+        if (cursor.moveToFirst() && nameIndex != -1) name = cursor.getString(nameIndex)
     }
     return name
+}
+
+fun get1LetterCode(resName: String): Char = when(resName) {
+    "ALA" -> 'A'; "ARG" -> 'R'; "ASN" -> 'N'; "ASP" -> 'D'; "CYS" -> 'C'
+    "GLN" -> 'Q'; "GLU" -> 'E'; "GLY" -> 'G'; "HIS" -> 'H'; "ILE" -> 'I'
+    "LEU" -> 'L'; "LYS" -> 'K'; "MET" -> 'M'; "PHE" -> 'F'; "PRO" -> 'P'
+    "SER" -> 'S'; "THR" -> 'T'; "TRP" -> 'W'; "TYR" -> 'Y'; "VAL" -> 'V'
+    else -> 'X'
+}
+
+fun getSpectrumColor(index: Int, total: Int): Color {
+    if (total <= 1) return Color.Red
+    val fraction = index.toFloat() / (total - 1)
+    val hue = (1f - fraction) * 240f
+    return Color.hsv(hue, 1f, 1f)
 }
 
 @SuppressLint("JavascriptInterface")
@@ -86,6 +95,7 @@ fun ViewerScreen() {
     val scope = rememberCoroutineScope()
     
     var pdbText by remember { mutableStateOf<String?>(null) }
+    var fastaResidues by remember { mutableStateOf<List<Residue>>(emptyList()) }
     var fileExt by remember { mutableStateOf("pdb") }
     var webViewInstance by remember { mutableStateOf<WebView?>(null) }
     var isPageReady by remember { mutableStateOf(false) }
@@ -99,40 +109,42 @@ fun ViewerScreen() {
         webViewInstance?.evaluateJavascript("loadModel($safeJsString, '$ext')", null)
     }
 
+    fun processLoadedFile(text: String, ext: String) {
+        pdbText = text
+        fileExt = ext
+        scope.launch {
+            fastaResidues = withContext(Dispatchers.Default) {
+                try {
+                    PdbParser.parse(text.byteInputStream()).chains
+                        .flatMap { it.residues }
+                        .filter { it.isStandardAA }
+                } catch (e: Exception) { emptyList() }
+            }
+            if (isPageReady) injectModel(text, ext)
+        }
+    }
+
     fun loadDefault(assetName: String) {
         isLoading = true
         scope.launch {
             val text = withContext(Dispatchers.IO) {
-                try {
-                    context.assets.open("defaults/$assetName").bufferedReader().readText()
-                } catch (e: Exception) { null }
+                try { context.assets.open("defaults/$assetName").bufferedReader().readText() } catch (e: Exception) { null }
             }
-            if (text != null) {
-                pdbText = text
-                fileExt = "pdb"
-                if (isPageReady) injectModel(text, "pdb")
-            }
+            if (text != null) processLoadedFile(text, "pdb")
             isLoading = false
         }
     }
 
-    val filePicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
+    val filePicker = rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
             isLoading = true
             scope.launch {
                 val text = withContext(Dispatchers.IO) {
-                    try {
-                        context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText()
-                    } catch (e: Exception) { null }
+                    try { context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText() } catch (e: Exception) { null }
                 }
                 if (text != null) {
                     val name = getFileName(context, uri) ?: "file.pdb"
-                    val ext = name.substringAfterLast('.', "pdb").lowercase()
-                    pdbText = text
-                    fileExt = ext
-                    if (isPageReady) injectModel(text, ext)
+                    processLoadedFile(text, name.substringAfterLast('.', "pdb").lowercase())
                 }
                 isLoading = false
             }
@@ -141,7 +153,6 @@ fun ViewerScreen() {
 
     Box(Modifier.fillMaxSize().background(GenomicsDark)) {
         if (pdbText == null) {
-            // --- HOME SCREEN WITH DEFAULTS ---
             Column(
                 Modifier.fillMaxSize().padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -151,19 +162,15 @@ fun ViewerScreen() {
                 Spacer(Modifier.height(24.dp))
                 Text("MolView", color = GenomicsCyan, fontSize = 32.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(48.dp))
-                
-                // Default Models Row
                 Text("Try a Demo", color = GenomicsMuted, fontSize = 14.sp, modifier = Modifier.align(Alignment.Start))
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { loadDefault("1crn.pdb") }, modifier = Modifier.weight(1f)) { Text("Crambin") }
                     Button(onClick = { loadDefault("4hhb.pdb") }, modifier = Modifier.weight(1f)) { Text("Hemoglobin") }
                 }
-                
                 Spacer(Modifier.height(32.dp))
                 Text("Or Load Your Own", color = GenomicsMuted, fontSize = 14.sp, modifier = Modifier.align(Alignment.Start))
                 Spacer(Modifier.height(8.dp))
-
                 Card(
                     onClick = { filePicker.launch("*/*") },
                     modifier = Modifier.fillMaxWidth().height(120.dp),
@@ -179,7 +186,6 @@ fun ViewerScreen() {
                 }
             }
         } else {
-            // --- VIEWER SCREEN ---
             AndroidView(
                 factory = { ctx ->
                     WebView(ctx).apply {
@@ -194,20 +200,12 @@ fun ViewerScreen() {
                         webChromeClient = WebChromeClient()
                         addJavascriptInterface(object {
                             @JavascriptInterface
-                            fun log(msg: String) {
-                                (ctx as? android.app.Activity)?.runOnUiThread {
-                                    Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
-                                }
-                            }
+                            fun log(msg: String) { (ctx as? android.app.Activity)?.runOnUiThread { Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show() } }
                             @JavascriptInterface
                             fun vibrate() {
                                 val vibrator = ctx.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                    vibrator.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
-                                } else {
-                                    @Suppress("DEPRECATION")
-                                    vibrator.vibrate(200)
-                                }
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) vibrator.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
+                                else @Suppress("DEPRECATION") vibrator.vibrate(200)
                             }
                         }, "AndroidLogger")
 
@@ -218,7 +216,6 @@ fun ViewerScreen() {
                                 if (pdbText != null) injectModel(pdbText!!, fileExt)
                             }
                         }
-                        
                         loadUrl("file:///android_asset/viewer.html?v=" + System.currentTimeMillis())
                         webViewInstance = this
                     }
@@ -226,15 +223,9 @@ fun ViewerScreen() {
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Overlay UI
-            Column(
-                modifier = Modifier.fillMaxSize().padding(16.dp),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Top Bar: Settings & Views
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
                 Surface(color = GenomicsSurface.copy(alpha = 0.9f), shape = RoundedCornerShape(8.dp)) {
                     Column(Modifier.fillMaxWidth().padding(8.dp)) {
-                        // Rep Buttons
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                             listOf("cartoon", "surface", "ballstick", "stick").forEach { rep ->
                                 FilterChip(
@@ -247,35 +238,24 @@ fun ViewerScreen() {
                             }
                         }
                         Spacer(Modifier.height(8.dp))
-                        // Action Row
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                            // Spin
                             IconButton(onClick = { 
                                 isSpinning = !isSpinning
                                 webViewInstance?.evaluateJavascript("toggleSpin()", null) 
                             }) {
-                                Icon(
-                                    imageVector = if (isSpinning) Icons.Default.Pause else Icons.Default.Refresh, 
-                                    contentDescription = "Spin", 
-                                    tint = GenomicsTeal
-                                )
+                                Icon(imageVector = if (isSpinning) Icons.Default.Pause else Icons.Default.Refresh, contentDescription = "Spin", tint = GenomicsTeal)
                             }
-                            // Rattle
                             IconButton(onClick = { webViewInstance?.evaluateJavascript("rattle()", null) }) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = "Rattle", tint = GenomicsTeal)
+                                Icon(Icons.Default.Vibration, contentDescription = "Rattle", tint = GenomicsTeal)
                             }
-                            // Color Dropdown
                             Box {
                                 IconButton(onClick = { showColorMenu = true }) {
                                     Icon(Icons.Default.Menu, contentDescription = "Colors", tint = GenomicsTeal)
                                 }
-                                DropdownMenu(
-                                    expanded = showColorMenu,
-                                    onDismissRequest = { showColorMenu = false }
-                                ) {
-                                    listOf("spectrum", "chain", "ssPyMOL", "bfactor", "whiteCarbon").forEach { color ->
+                                DropdownMenu(expanded = showColorMenu, onDismissRequest = { showColorMenu = false }) {
+                                    listOf("spectrum", "chain", "ssPyMOL", "greenCarbon", "residue").forEach { color ->
                                         DropdownMenuItem(
-                                            text = { Text(color) },
+                                            text = { Text(color, color = GenomicsText) },
                                             onClick = {
                                                 webViewInstance?.evaluateJavascript("setColor('$color')", null)
                                                 showColorMenu = false
@@ -287,18 +267,43 @@ fun ViewerScreen() {
                         }
                     }
                 }
+                
+                Column(Modifier.fillMaxWidth()) {
+                    if (fastaResidues.isNotEmpty()) {
+                        Surface(color = Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(4.dp)) {
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth().height(30.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                items(fastaResidues.size) { index ->
+                                    val res = fastaResidues[index]
+                                    Text(
+                                        text = get1LetterCode(res.name).toString(),
+                                        color = getSpectrumColor(index, fastaResidues.size),
+                                        fontSize = 14.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 1.dp)
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
 
-                // Bottom Close Button
-                TextButton(
-                    onClick = { 
-                        pdbText = null 
-                        isPageReady = false
-                        isSpinning = false
-                        webViewInstance?.reload()
-                    },
-                    modifier = Modifier.align(Alignment.CenterHorizontally).background(GenomicsSurface.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
-                ) { 
-                    Text("Close Structure", color = GenomicsMuted) 
+                    TextButton(
+                        onClick = { 
+                            pdbText = null 
+                            fastaResidues = emptyList()
+                            isSpinning = false
+                            isPageReady = false
+                            webViewInstance?.reload()
+                        },
+                        modifier = Modifier.align(Alignment.CenterHorizontally).background(GenomicsSurface.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
+                    ) { 
+                        Text("Close Structure", color = GenomicsMuted) 
+                    }
                 }
             }
         }
