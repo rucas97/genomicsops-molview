@@ -1,7 +1,10 @@
 package com.genomicsops.molview
 
+import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Bundle
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -13,7 +16,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.genomicsops.molview.mol.PdbParser
+import androidx.compose.ui.viewinterop.AndroidView
+import com.genomicsops.molview.ui.GenomicsTheme
+import com.genomicsops.molview.ui.SplashScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -22,8 +27,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+            GenomicsTheme {
+                var showSplash by remember { mutableStateOf(true) }
+                if (showSplash) {
+                    SplashScreen { showSplash = false }
+                } else {
                     ViewerScreen()
                 }
             }
@@ -31,11 +39,14 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun ViewerScreen() {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope() // FIX: lifecycle-aware scope
-    var statusText by remember { mutableStateOf("No file loaded.") }
+    val scope = rememberCoroutineScope()
+    
+    var pdbText by remember { mutableStateOf<String?>(null) }
+    var webView by remember { mutableStateOf<WebView?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
     val filePicker = rememberLauncherForActivityResult(
@@ -43,53 +54,69 @@ fun ViewerScreen() {
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
         isLoading = true
-        statusText = "Parsing..."
-
-        scope.launch { // FIX: using the Compose scope
-            val result = withContext(Dispatchers.IO) {
+        scope.launch {
+            val text = withContext(Dispatchers.IO) {
                 try {
-                    val inputStream = context.contentResolver.openInputStream(uri)
-                    if (inputStream == null) return@withContext "Error: Could not open file."
-                    
-                    val model = PdbParser.parse(inputStream)
-                    "Success!\n\n" +
-                    "Atoms: ${model.atomCount}\n" +
-                    "Residues: ${model.residueCount}\n" +
-                    "Chains: ${model.chainCount}\n" +
-                    "Ligands: ${model.ligandResidues.size}"
-                } catch (e: Exception) {
-                    "Parse Error:\n${e.message}"
-                }
+                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText()
+                } catch (e: Exception) { null }
             }
-            statusText = result
+            if (text != null) {
+                pdbText = text
+                // Send data to JS
+                webView?.evaluateJavascript("loadModel(`$text`)", null)
+            }
             isLoading = false
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "GenomicsOps MolView",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 32.dp)
-        )
+    Column(Modifier.fillMaxSize()) {
+        if (pdbText == null) {
+            // --- HOME SCREEN ---
+            Column(
+                Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Button(onClick = { filePicker.launch("*/*") }) {
+                    Text(if (isLoading) "Loading..." else "Select 3D Molecule File")
+                }
+                Spacer(Modifier.height(16.dp))
+                Text("Accepts PDB, CIF, SDF, MOL2, XYZ", style = MaterialTheme.typography.bodySmall)
+            }
+        } else {
+            // --- VIEWER SCREEN ---
+            Row(
+                Modifier.fillMaxWidth().padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                listOf("cartoon", "surface", "ballstick", "stick").forEach { rep ->
+                    OutlinedButton(
+                        onClick = { webView?.evaluateJavascript("setRep('$rep')", null) },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                    ) { Text(rep, style = MaterialTheme.typography.labelSmall) }
+                }
+            }
 
-        Button(
-            onClick = { filePicker.launch("*/*") }, 
-            enabled = !isLoading
-        ) {
-            Text(if (isLoading) "Loading..." else "Select PDB File")
+            AndroidView(
+                factory = { ctx ->
+                    WebView(ctx).apply {
+                        settings.javaScriptEnabled = true
+                        settings.allowFileAccess = true
+                        webViewClient = WebViewClient()
+                        loadUrl("file:///android_asset/viewer.html")
+                        webView = this
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            )
+
+            Button(
+                onClick = { 
+                    pdbText = null 
+                    webView?.loadUrl("about:blank")
+                },
+                modifier = Modifier.align(Alignment.CenterHorizontally).padding(8.dp)
+            ) { Text("Close") }
         }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Text(
-            text = statusText,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(16.dp)
-        )
     }
 }
