@@ -480,6 +480,3 @@ fun ViewerScreen(incomingUri: Uri?) {
                     }
                 }
             }
-        }
-    }
-}
