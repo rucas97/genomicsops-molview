@@ -193,7 +193,7 @@ fun ViewerScreen() {
                         // Use loadDataWithBaseURL to bypass file:// restrictions
                         settings.allowFileAccessFromFileURLs = true
                         settings.allowUniversalAccessFromFileURLs = true
-                        loadUrl("file:///android_asset/viewer2.html?v=" + System.currentTimeMillis())
+                        loadUrl("file:///android_asset/viewer3.html?v=" + System.currentTimeMillis())
                         
                         clearCache(true)
                         webViewInstance = this
