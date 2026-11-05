@@ -21,6 +21,9 @@ jobs:
         run: echo "$KEYSTORE_BASE64" | base64 -d > app/release.jks
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --no-daemon
+
       - name: Build release APK
         run: gradle :app:assembleRelease --no-daemon
         env:
