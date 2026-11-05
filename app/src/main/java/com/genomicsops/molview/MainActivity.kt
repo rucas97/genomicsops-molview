@@ -49,24 +49,15 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
-    // 1. State to hold incoming files from other apps
     var incomingUri by mutableStateOf<Uri?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WebView.setWebContentsDebuggingEnabled(true)
-        
-        // Check if app was opened via "Open With"
         incomingUri = intent?.data
-
-        setContent {
-            GenomicsTheme {
-                AppRoot(incomingUri)
-            }
-        }
+        setContent { GenomicsTheme { AppRoot(incomingUri) } }
     }
 
-    // Handle "Open With" while the app is already running
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         incomingUri = intent.data
@@ -99,7 +90,7 @@ fun get1LetterCode(resName: String): Char = when(resName) {
 fun getSpectrumColor(index: Int, total: Int): Color {
     if (total <= 1) return Color.Red
     val fraction = index.toFloat() / (total - 1)
-    val hue = (1f - fraction) * 240f
+    val hue = fraction * 300f
     return Color.hsv(hue, 1f, 1f)
 }
 
@@ -115,8 +106,9 @@ fun ViewerScreen(incomingUri: Uri?) {
     var webViewInstance by remember { mutableStateOf<WebView?>(null) }
     var isPageReady by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+    var isReadingIncoming by remember { mutableStateOf(incomingUri != null) }
     
-    var showColorMenu by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
     var isSpinning by remember { mutableStateOf(false) }
 
     fun injectModel(text: String, ext: String) {
@@ -152,14 +144,12 @@ fun ViewerScreen(incomingUri: Uri?) {
                 Toast.makeText(context, "Failed to read file", Toast.LENGTH_SHORT).show()
             }
             isLoading = false
+            isReadingIncoming = false
         }
     }
 
-    // 2. Listen for incoming "Open With" URIs
     LaunchedEffect(incomingUri) {
-        if (incomingUri != null && isPageReady) {
-            loadUri(incomingUri)
-        }
+        if (incomingUri != null) loadUri(incomingUri)
     }
 
     fun loadDefault(assetName: String) {
@@ -178,9 +168,15 @@ fun ViewerScreen(incomingUri: Uri?) {
         if (uri != null) loadUri(uri)
     }
 
+    if (isReadingIncoming) {
+        Box(Modifier.fillMaxSize().background(GenomicsDark), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = GenomicsCyan)
+        }
+        return
+    }
+
     Box(Modifier.fillMaxSize().background(GenomicsDark)) {
         if (pdbText == null) {
-            // --- HOME SCREEN ---
             Column(
                 Modifier.fillMaxSize().padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -214,7 +210,6 @@ fun ViewerScreen(incomingUri: Uri?) {
                 }
             }
         } else {
-            // --- VIEWER SCREEN ---
             AndroidView(
                 factory = { ctx ->
                     WebView(ctx).apply {
@@ -243,7 +238,6 @@ fun ViewerScreen(incomingUri: Uri?) {
                                 super.onPageFinished(view, url)
                                 isPageReady = true
                                 if (pdbText != null) injectModel(pdbText!!, fileExt)
-                                else if (incomingUri != null) loadUri(incomingUri) // Handle "Open With" on cold start
                             }
                         }
                         loadUrl("file:///android_asset/viewer.html?v=" + System.currentTimeMillis())
@@ -276,77 +270,40 @@ fun ViewerScreen(incomingUri: Uri?) {
                             IconButton(onClick = { webViewInstance?.evaluateJavascript("rattle()", null) }) {
                                 Icon(Icons.Default.Vibration, contentDescription = "Rattle", tint = GenomicsTeal)
                             }
-                            Box {
-                                IconButton(onClick = { showColorMenu = true }) {
-                                    Icon(Icons.Default.Menu, contentDescription = "Colors", tint = GenomicsTeal)
-                                }
-                                DropdownMenu(expanded = showColorMenu, onDismissRequest = { showColorMenu = false }) {
-                                    listOf("spectrum", "chain", "ssPyMOL", "greenCarbon", "chainHetatm").forEach { color ->
-                                        DropdownMenuItem(
-                                            text = { Text(color, color = GenomicsText) },
-                                            onClick = {
-                                                webViewInstance?.evaluateJavascript("setColor('$color')", null)
-                                                showColorMenu = false
-                                            }
-                                        )
-                                    }
-                                }
+                            IconButton(onClick = { showSettings = true }) {
+                                Icon(Icons.Default.Settings, contentDescription = "Settings", tint = GenomicsTeal)
                             }
                         }
                     }
                 }
                 
-                // Bottom Section: FASTA + Close Button
-                Column(Modifier.fillMaxWidth()) {
-                    Surface(color = Color.White.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp), border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))) {
-                        LazyRow(
-                            modifier = Modifier.fillMaxWidth().height(40.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (fastaResidues.isEmpty()) {
-                                item { Text("SEQ: Not available (Try a .pdb file)", color = GenomicsMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
-                            } else {
-                                item { Text("SEQ: ", color = GenomicsCyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold) }
-                                items(fastaResidues.size) { index ->
-                                    val res = fastaResidues[index]
-                                    // 3. Make each letter clickable to zoom
-                                    Text(
-                                        text = get1LetterCode(res.name).toString(),
-                                        color = getSpectrumColor(index, fastaResidues.size),
-                                        fontSize = 14.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier
-                                            .padding(horizontal = 2.dp)
-                                            .clickable {
-                                                val chainId = res.chain?.id ?: 'A'
-                                                webViewInstance?.evaluateJavascript("highlightResidue('$chainId', ${res.number})", null)
-                                            }
-                                    )
+                // Settings Bottom Sheet
+                if (showSettings) {
+                    ModalBottomSheet(
+                        onDismissRequest = { showSettings = false },
+                        containerColor = GenomicsSurface
+                    ) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                            Text("View Settings", color = GenomicsText, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(16.dp))
+                            
+                            Text("Color Scheme", color = GenomicsMuted, fontSize = 14.sp)
+                            Spacer(Modifier.height(8.dp))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf("spectrum", "chain", "ssPyMOL", "greenCarbon", "chainHetatm").forEach { color ->
+                                    Button(
+                                        onClick = { webViewInstance?.evaluateJavascript("setColor('$color')", null) },
+                                        modifier = Modifier.weight(1f),
+                                        contentPadding = PaddingValues(4.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)
+                                    ) {
+                                        Text(color, fontSize = 10.sp, color = GenomicsCyan)
+                                    }
                                 }
                             }
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-
-                    TextButton(
-                        onClick = { 
-                            pdbText = null 
-                            fastaResidues = emptyList()
-                            isSpinning = false
-                            isPageReady = false
-                            webViewInstance?.reload()
-                        },
-                        modifier = Modifier.align(Alignment.CenterHorizontally).background(GenomicsSurface.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
-                    ) { 
-                        Text("Close Structure", color = GenomicsMuted) 
-                    }
-                }
-            }
-        }
-    }
-}
+                            
+                            Spacer(Modifier.height(24.dp))
+                            Text("Tools", color = GenomicsMuted, fontSize = 14.sp)
                             Spacer(Modifier.height(8.dp))
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Button(
@@ -412,3 +369,7 @@ fun ViewerScreen(incomingUri: Uri?) {
                         Text("Close Structure", color = GenomicsMuted) 
                     }
                 }
+            }
+        }
+    }
+}
