@@ -2,6 +2,7 @@ package com.genomicsops.molview
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -20,6 +21,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,21 +49,34 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
+    // 1. State to hold incoming files from other apps
+    var incomingUri by mutableStateOf<Uri?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WebView.setWebContentsDebuggingEnabled(true)
+        
+        // Check if app was opened via "Open With"
+        incomingUri = intent?.data
+
         setContent {
             GenomicsTheme {
-                AppRoot()
+                AppRoot(incomingUri)
             }
         }
+    }
+
+    // Handle "Open With" while the app is already running
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        incomingUri = intent.data
     }
 }
 
 @Composable
-fun AppRoot() {
+fun AppRoot(incomingUri: Uri?) {
     var showSplash by remember { mutableStateOf(true) }
-    if (showSplash) SplashScreen { showSplash = false } else ViewerScreen()
+    if (showSplash) SplashScreen { showSplash = false } else ViewerScreen(incomingUri)
 }
 
 fun getFileName(context: Context, uri: Uri): String? {
@@ -90,7 +105,7 @@ fun getSpectrumColor(index: Int, total: Int): Color {
 
 @SuppressLint("JavascriptInterface")
 @Composable
-fun ViewerScreen() {
+fun ViewerScreen(incomingUri: Uri?) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
@@ -124,6 +139,29 @@ fun ViewerScreen() {
         }
     }
 
+    fun loadUri(uri: Uri) {
+        isLoading = true
+        scope.launch {
+            val text = withContext(Dispatchers.IO) {
+                try { context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText() } catch (e: Exception) { null }
+            }
+            if (text != null) {
+                val name = getFileName(context, uri) ?: "file.pdb"
+                processLoadedFile(text, name.substringAfterLast('.', "pdb").lowercase())
+            } else {
+                Toast.makeText(context, "Failed to read file", Toast.LENGTH_SHORT).show()
+            }
+            isLoading = false
+        }
+    }
+
+    // 2. Listen for incoming "Open With" URIs
+    LaunchedEffect(incomingUri) {
+        if (incomingUri != null && isPageReady) {
+            loadUri(incomingUri)
+        }
+    }
+
     fun loadDefault(assetName: String) {
         isLoading = true
         scope.launch {
@@ -131,29 +169,18 @@ fun ViewerScreen() {
                 try { context.assets.open("defaults/$assetName").bufferedReader().readText() } catch (e: Exception) { null }
             }
             if (text != null) processLoadedFile(text, "pdb")
-            else Toast.makeText(context, "Failed to load demo file", Toast.LENGTH_SHORT).show()
+            else Toast.makeText(context, "Failed to load demo", Toast.LENGTH_SHORT).show()
             isLoading = false
         }
     }
 
     val filePicker = rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) { uri: Uri? ->
-        if (uri != null) {
-            isLoading = true
-            scope.launch {
-                val text = withContext(Dispatchers.IO) {
-                    try { context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText() } catch (e: Exception) { null }
-                }
-                if (text != null) {
-                    val name = getFileName(context, uri) ?: "file.pdb"
-                    processLoadedFile(text, name.substringAfterLast('.', "pdb").lowercase())
-                }
-                isLoading = false
-            }
-        }
+        if (uri != null) loadUri(uri)
     }
 
     Box(Modifier.fillMaxSize().background(GenomicsDark)) {
         if (pdbText == null) {
+            // --- HOME SCREEN ---
             Column(
                 Modifier.fillMaxSize().padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -187,6 +214,7 @@ fun ViewerScreen() {
                 }
             }
         } else {
+            // --- VIEWER SCREEN ---
             AndroidView(
                 factory = { ctx ->
                     WebView(ctx).apply {
@@ -215,6 +243,7 @@ fun ViewerScreen() {
                                 super.onPageFinished(view, url)
                                 isPageReady = true
                                 if (pdbText != null) injectModel(pdbText!!, fileExt)
+                                else if (incomingUri != null) loadUri(incomingUri) // Handle "Open With" on cold start
                             }
                         }
                         loadUrl("file:///android_asset/viewer.html?v=" + System.currentTimeMillis())
@@ -225,6 +254,7 @@ fun ViewerScreen() {
             )
 
             Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                // Top Controls
                 Surface(color = GenomicsSurface.copy(alpha = 0.9f), shape = RoundedCornerShape(8.dp)) {
                     Column(Modifier.fillMaxWidth().padding(8.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -240,10 +270,7 @@ fun ViewerScreen() {
                         }
                         Spacer(Modifier.height(8.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { 
-                                isSpinning = !isSpinning
-                                webViewInstance?.evaluateJavascript("toggleSpin()", null) 
-                            }) {
+                            IconButton(onClick = { isSpinning = !isSpinning; webViewInstance?.evaluateJavascript("toggleSpin()", null) }) {
                                 Icon(imageVector = if (isSpinning) Icons.Default.Pause else Icons.Default.Refresh, contentDescription = "Spin", tint = GenomicsTeal)
                             }
                             IconButton(onClick = { webViewInstance?.evaluateJavascript("rattle()", null) }) {
@@ -269,8 +296,8 @@ fun ViewerScreen() {
                     }
                 }
                 
+                // Bottom Section: FASTA + Close Button
                 Column(Modifier.fillMaxWidth()) {
-                    // Always show the sequence panel
                     Surface(color = Color.White.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp), border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))) {
                         LazyRow(
                             modifier = Modifier.fillMaxWidth().height(40.dp),
@@ -278,22 +305,24 @@ fun ViewerScreen() {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             if (fastaResidues.isEmpty()) {
-                                item { 
-                                    Text("SEQ: Not available (Try a .pdb file)", color = GenomicsMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace) 
-                                }
+                                item { Text("SEQ: Not available (Try a .pdb file)", color = GenomicsMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
                             } else {
-                                item {
-                                    Text("SEQ: ", color = GenomicsCyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                                }
+                                item { Text("SEQ: ", color = GenomicsCyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold) }
                                 items(fastaResidues.size) { index ->
                                     val res = fastaResidues[index]
+                                    // 3. Make each letter clickable to zoom
                                     Text(
                                         text = get1LetterCode(res.name).toString(),
                                         color = getSpectrumColor(index, fastaResidues.size),
                                         fontSize = 14.sp,
                                         fontFamily = FontFamily.Monospace,
                                         fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 1.dp)
+                                        modifier = Modifier
+                                            .padding(horizontal = 2.dp)
+                                            .clickable {
+                                                val chainId = res.chain?.id ?: 'A'
+                                                webViewInstance?.evaluateJavascript("highlightResidue('$chainId', ${res.number})", null)
+                                            }
                                     )
                                 }
                             }

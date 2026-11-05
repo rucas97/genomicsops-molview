@@ -35,17 +35,12 @@
     try {
       viewer.removeAllModels();
       viewer.removeAllSurfaces();
+      viewer.removeAllShapes();
       isSpinning = false;
       currentModel = viewer.addModel(data, ext);
       viewer.zoomTo();
       setRep(currentRep);
-      
-      // Fix the "renders nothing until you click" bug
-      setTimeout(function() {
-        viewer.resize();
-        viewer.render();
-      }, 150);
-      
+      setTimeout(function() { viewer.resize(); viewer.render(); }, 150);
     } catch(e) {
       if (typeof AndroidLogger !== 'undefined') AndroidLogger.log("Parse Error: " + e.message);
     }
@@ -56,17 +51,14 @@
     if (!currentModel) return;
     viewer.removeAllSurfaces();
     
-    // Helper function to get the correct style object based on color
     function getCartoonStyle() {
       if (currentColor === 'spectrum') return { cartoon: { color: 'spectrum' } };
       return { cartoon: { colorscheme: currentColor } };
     }
-    
     function getStickStyle() {
       if (currentColor === 'spectrum') return { stick: { radius: 0.15, color: 'spectrum' } };
       return { stick: { radius: 0.15, colorscheme: currentColor } };
     }
-    
     function getSphereStyle() {
       if (currentColor === 'spectrum') return { sphere: { scale: 0.25, color: 'spectrum' } };
       return { sphere: { scale: 0.25, colorscheme: currentColor } };
@@ -90,7 +82,7 @@
 
   function setColor(scheme) {
     currentColor = scheme;
-    setRep(currentRep); // Re-apply the current representation with the new color
+    setRep(currentRep);
   }
 
   function toggleSpin() {
@@ -107,6 +99,23 @@
       canvas.classList.add('rattling');
       setTimeout(function() { canvas.classList.remove('rattling'); }, 800);
     }
+  }
+
+  // NEW: Highlight a specific residue from the FASTA strip
+  function highlightResidue(chain, resi) {
+    if (!currentModel) return;
+    viewer.removeAllShapes();
+    
+    var sel = { chain: chain, resi: resi };
+    
+    // Add a stick highlight in bright red
+    viewer.addStyle(sel, { stick: { colorscheme: 'redCarbon', radius: 0.3 } });
+    
+    // Zoom the camera to it
+    viewer.zoomTo(sel, 800);
+    viewer.render();
+    
+    if (typeof AndroidLogger !== 'undefined') AndroidLogger.log("Zoomed to residue " + resi);
   }
 </script>
 </body>
