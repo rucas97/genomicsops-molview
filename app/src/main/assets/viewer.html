@@ -4,33 +4,45 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <script src="3Dmol-min.js"></script>
 <style>
-  html,body{margin:0;height:100%;background:#06080A;overflow:hidden}
-  #viewer{width:100vw;height:100vh}
+  html,body{margin:0;height:100%;background:#06080A;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#8B949E;font-family:sans-serif}
+  #viewer{width:100vw;height:100vh;position:absolute;inset:0}
+  #error{position:relative;z-index:10;text-align:center}
 </style>
 </head>
 <body>
+<div id="error">Loading Engine...</div>
 <div id="viewer"></div>
 <script>
-let viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A' });
-let currentModel = null;
+  if (typeof $3Dmol === 'undefined') {
+    document.getElementById('error').innerText = "ERROR: 3Dmol.js failed to load.\nCheck your network or the file size.";
+  } else {
+    document.getElementById('error').style.display = 'none';
+    var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A' });
+    var currentModel = null;
 
-function loadModel(pdb) {
-  viewer.removeAllModels();
-  currentModel = viewer.addModel(pdb, 'pdb');
-  viewer.zoomTo();
-  setRep('cartoon');
-}
+    function loadModel(data, ext) {
+      try {
+        viewer.removeAllModels();
+        // Pass the extension so 3Dmol knows how to parse CIF vs PDB
+        currentModel = viewer.addModel(data, ext);
+        viewer.zoomTo();
+        setRep('cartoon');
+      } catch(e) {
+        alert("Parse Error: " + e.message);
+      }
+    }
 
-function setRep(rep) {
-  if (!currentModel) return;
-  let style;
-  if (rep === 'cartoon') style = { cartoon: { color: 'spectrum' } };
-  else if (rep === 'surface') style = { cartoon: { color: 'spectrum' }, surface: { opacity: 0.8, color: 'white' } };
-  else if (rep === 'ballstick') style = { stick: { radius: 0.15 }, sphere: { scale: 0.25 } };
-  else style = { stick: { radius: 0.15 } };
-  viewer.setStyle({}, style);
-  viewer.render();
-}
+    function setRep(rep) {
+      if (!currentModel) return;
+      var style;
+      if (rep === 'cartoon') style = { cartoon: { color: 'spectrum' } };
+      else if (rep === 'surface') style = { cartoon: { color: 'spectrum' }, surface: { opacity: 0.8, color: 'white' } };
+      else if (rep === 'ballstick') style = { stick: { radius: 0.15 }, sphere: { scale: 0.25 } };
+      else style = { stick: { radius: 0.15 } };
+      viewer.setStyle({}, style);
+      viewer.render();
+    }
+  }
 </script>
 </body>
 </html>
