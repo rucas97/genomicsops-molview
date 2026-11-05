@@ -28,7 +28,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,14 +50,12 @@ import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
     var incomingUri by mutableStateOf<Uri?>(null)
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WebView.setWebContentsDebuggingEnabled(true)
         incomingUri = intent?.data
         setContent { GenomicsTheme { AppRoot(incomingUri) } }
     }
-
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         incomingUri = intent.data
@@ -81,18 +78,12 @@ fun getFileName(context: Context, uri: Uri): String? {
 }
 
 fun get1LetterCode(resName: String): Char = when(resName) {
-    "ALA" -> 'A'; "ARG" -> 'R'; "ASN" -> 'N'; "ASP" -> 'D'; "CYS" -> 'C'
-    "GLN" -> 'Q'; "GLU" -> 'E'; "GLY" -> 'G'; "HIS" -> 'H'; "ILE" -> 'I'
-    "LEU" -> 'L'; "LYS" -> 'K'; "MET" -> 'M'; "PHE" -> 'F'; "PRO" -> 'P'
-    "SER" -> 'S'; "THR" -> 'T'; "TRP" -> 'W'; "TYR" -> 'Y'; "VAL" -> 'V'
-    else -> 'X'
+    "ALA" -> 'A'; "ARG" -> 'R'; "ASN" -> 'N'; "ASP" -> 'D'; "CYS" -> 'C'; "GLN" -> 'Q'; "GLU" -> 'E'; "GLY" -> 'G'; "HIS" -> 'H'; "ILE" -> 'I'; "LEU" -> 'L'; "LYS" -> 'K'; "MET" -> 'M'; "PHE" -> 'F'; "PRO" -> 'P'; "SER" -> 'S'; "THR" -> 'T'; "TRP" -> 'W'; "TYR" -> 'Y'; "VAL" -> 'V'; else -> 'X'
 }
 
 fun getSpectrumColor(index: Int, total: Int): Color {
     if (total <= 1) return Color.Red
-    val fraction = index.toFloat() / (total - 1)
-    val hue = fraction * 300f
-    return Color.hsv(hue, 1f, 1f)
+    return Color.hsv((index.toFloat() / (total - 1)) * 300f, 1f, 1f)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -101,7 +92,6 @@ fun getSpectrumColor(index: Int, total: Int): Color {
 fun ViewerScreen(incomingUri: Uri?) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    
     var pdbText by remember { mutableStateOf<String?>(null) }
     var fastaResidues by remember { mutableStateOf<List<Residue>>(emptyList()) }
     var fileExt by remember { mutableStateOf("pdb") }
@@ -109,13 +99,11 @@ fun ViewerScreen(incomingUri: Uri?) {
     var isPageReady by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var isReadingIncoming by remember { mutableStateOf(incomingUri != null) }
-    
     var showSettings by remember { mutableStateOf(false) }
     var isSpinning by remember { mutableStateOf(false) }
 
     fun injectModel(text: String, ext: String) {
-        val safeJsString = JSONObject.quote(text)
-        webViewInstance?.evaluateJavascript("loadModel($safeJsString, '$ext')", null)
+        webViewInstance?.evaluateJavascript("loadModel(${JSONObject.quote(text)}, '$ext')", null)
     }
 
     fun processLoadedFile(text: String, ext: String) {
@@ -123,11 +111,7 @@ fun ViewerScreen(incomingUri: Uri?) {
         fileExt = ext
         scope.launch {
             fastaResidues = withContext(Dispatchers.Default) {
-                try {
-                    PdbParser.parse(text.byteInputStream()).chains
-                        .flatMap { it.residues }
-                        .filter { it.isStandardAA }
-                } catch (e: Exception) { emptyList() }
+                try { PdbParser.parse(text.byteInputStream()).chains.flatMap { it.residues }.filter { it.isStandardAA } } catch (e: Exception) { emptyList() }
             }
             if (isPageReady) injectModel(text, ext)
         }
@@ -139,20 +123,14 @@ fun ViewerScreen(incomingUri: Uri?) {
             val text = withContext(Dispatchers.IO) {
                 try { context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText() } catch (e: Exception) { null }
             }
-            if (text != null) {
-                val name = getFileName(context, uri) ?: "file.pdb"
-                processLoadedFile(text, name.substringAfterLast('.', "pdb").lowercase())
-            } else {
-                Toast.makeText(context, "Failed to read file", Toast.LENGTH_SHORT).show()
-            }
+            if (text != null) processLoadedFile(text, (getFileName(context, uri) ?: "file.pdb").substringAfterLast('.', "pdb").lowercase())
+            else Toast.makeText(context, "Failed to read file", Toast.LENGTH_SHORT).show()
             isLoading = false
             isReadingIncoming = false
         }
     }
 
-    LaunchedEffect(incomingUri) {
-        if (incomingUri != null) loadUri(incomingUri)
-    }
+    LaunchedEffect(incomingUri) { if (incomingUri != null) loadUri(incomingUri) }
 
     fun loadDefault(assetName: String) {
         isLoading = true
@@ -166,9 +144,7 @@ fun ViewerScreen(incomingUri: Uri?) {
         }
     }
 
-    val filePicker = rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) { uri: Uri? ->
-        if (uri != null) loadUri(uri)
-    }
+    val filePicker = rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) { uri: Uri? -> if (uri != null) loadUri(uri) }
 
     if (isReadingIncoming) {
         Box(Modifier.fillMaxSize().background(GenomicsDark), contentAlignment = Alignment.Center) {
@@ -179,11 +155,7 @@ fun ViewerScreen(incomingUri: Uri?) {
 
     Box(Modifier.fillMaxSize().background(GenomicsDark)) {
         if (pdbText == null) {
-            Column(
-                Modifier.fillMaxSize().padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
+            Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Image(painter = painterResource(id = R.drawable.logo), contentDescription = "Logo", modifier = Modifier.size(100.dp))
                 Spacer(Modifier.height(24.dp))
                 Text("MolView", color = GenomicsCyan, fontSize = 32.sp, fontWeight = FontWeight.Bold)
@@ -225,19 +197,15 @@ fun ViewerScreen(incomingUri: Uri?) {
                         settings.allowContentAccess = true
                         settings.allowFileAccessFromFileURLs = true
                         settings.allowUniversalAccessFromFileURLs = true
-                        
                         webChromeClient = WebChromeClient()
                         addJavascriptInterface(object {
-                            @JavascriptInterface
-                            fun log(msg: String) { (ctx as? android.app.Activity)?.runOnUiThread { Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show() } }
-                            @JavascriptInterface
-                            fun vibrate() {
-                                val vibrator = ctx.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) vibrator.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
-                                else @Suppress("DEPRECATION") vibrator.vibrate(200)
+                            @JavascriptInterface fun log(msg: String) { (ctx as? android.app.Activity)?.runOnUiThread { Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show() } }
+                            @JavascriptInterface fun vibrate() {
+                                val v = ctx.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) v.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
+                                else @Suppress("DEPRECATION") v.vibrate(200)
                             }
                         }, "AndroidLogger")
-
                         webViewClient = object : WebViewClient() {
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 super.onPageFinished(view, url)
@@ -251,9 +219,7 @@ fun ViewerScreen(incomingUri: Uri?) {
                 },
                 modifier = Modifier.fillMaxSize()
             )
-
             Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                // Top Controls
                 Surface(color = GenomicsSurface.copy(alpha = 0.9f), shape = RoundedCornerShape(8.dp)) {
                     Column(Modifier.fillMaxWidth().padding(8.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -282,117 +248,13 @@ fun ViewerScreen(incomingUri: Uri?) {
                     }
                 }
                 
-                // Settings Bottom Sheet
                 if (showSettings) {
-                    ModalBottomSheet(
-                        onDismissRequest = { showSettings = false },
-                        containerColor = GenomicsSurface
-                    ) {
+                    ModalBottomSheet(onDismissRequest = { showSettings = false }, containerColor = GenomicsSurface) {
                         Column(Modifier.fillMaxWidth().padding(16.dp)) {
                             Text("View Settings", color = GenomicsText, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(16.dp))
-                            
                             Text("Color Scheme", color = GenomicsMuted, fontSize = 14.sp)
                             Spacer(Modifier.height(8.dp))
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf("spectrum", "chain", "ssPyMOL", "greenCarbon", "chainHetatm").forEach { color ->
-                                    Button(
-                                        onClick = { webViewInstance?.evaluateJavascript("setColor('$color')", null) },
-                                        modifier = Modifier.weight(1f),
-                                        contentPadding = PaddingValues(4.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)
-                                    ) {
-                                        Text(color, fontSize = 10.sp, color = GenomicsCyan)
-                                    }
-                                }
-                            }
-                            
-                            Spacer(Modifier.height(24.dp))
-                            Text("Tools", color = GenomicsMuted, fontSize = 14.sp)
-                            Spacer(Modifier.height(8.dp))
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = { webViewInstance?.evaluateJavascript("resetView()", null) },
-                                    modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)
-                                ) { Text("Reset View", color = GenomicsText) }
-                                
-                                Button(
-                                    onClick = { webViewInstance?.evaluateJavascript("toggleHydrogens()", null) },
-                                    modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)
-                                ) { Text("Toggle H", color = GenomicsText) }
-                            }
-                            Spacer(Modifier.height(48.dp))
-                        }
-                    }
-                }
-
-                // Bottom Section: FASTA + Close Button
-                Column(Modifier.fillMaxWidth()) {
-                    Surface(color = Color.White.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp), border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))) {
-                        LazyRow(
-                            modifier = Modifier.fillMaxWidth().height(40.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (fastaResidues.isEmpty()) {
-                                item { Text("SEQ: Not available (Try a .pdb file)", color = GenomicsMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
-                            } else {
-                                item { Text("SEQ: ", color = GenomicsCyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold) }
-                                items(fastaResidues.size) { index ->
-                                    val res = fastaResidues[index]
-                                    Text(
-                                        text = get1LetterCode(res.name).toString(),
-                                        color = getSpectrumColor(index, fastaResidues.size),
-                                        fontSize = 14.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier
-                                            .padding(horizontal = 2.dp)
-                                            .clickable {
-                                                val chainId = res.chain?.id ?: 'A'
-                                                webViewInstance?.evaluateJavascript("highlightResidue('$chainId', ${res.number})", null)
-                                            }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-
-                    TextButton(
-                        onClick = { 
-                            pdbText = null 
-                            fastaResidues = emptyList()
-                            isSpinning = false
-                            isPageReady = false
-                            webViewInstance?.reload()
-                        },
-                        modifier = Modifier.align(Alignment.CenterHorizontally).background(GenomicsSurface.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
-                    ) { 
-                        Text("Close Structure", color = GenomicsMuted) 
-                    }
-                }
-            }
-        }
-    }
-}
-                
-                // Settings Bottom Sheet
-                if (showSettings) {
-                    ModalBottomSheet(
-                        onDismissRequest = { showSettings = false },
-                        containerColor = GenomicsSurface
-                    ) {
-                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                            Text("View Settings", color = GenomicsText, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(16.dp))
-                            
-                            Text("Color Scheme", color = GenomicsMuted, fontSize = 14.sp)
-                            Spacer(Modifier.height(8.dp))
-                            
-                            // FIXED: Using LazyRow of FilterChips to prevent ugly text wrapping
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 val colors = listOf("spectrum", "chain", "ssPyMOL", "greenCarbon", "chainHetatm")
                                 items(colors.size) { index ->
@@ -401,46 +263,25 @@ fun ViewerScreen(incomingUri: Uri?) {
                                         selected = false,
                                         onClick = { webViewInstance?.evaluateJavascript("setColor('$color')", null) },
                                         label = { Text(color, fontSize = 12.sp) },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            labelColor = GenomicsCyan,
-                                            containerColor = GenomicsDark
-                                        ),
-                                        border = FilterChipDefaults.filterChipBorder(
-                                            enabled = true, selected = false, borderColor = GenomicsCyan.copy(alpha = 0.3f)
-                                        )
+                                        colors = FilterChipDefaults.filterChipColors(labelColor = GenomicsCyan, containerColor = GenomicsDark),
+                                        border = FilterChipDefaults.filterChipBorder(enabled = true, selected = false, borderColor = GenomicsCyan.copy(alpha = 0.3f))
                                     )
                                 }
                             }
-                            
                             Spacer(Modifier.height(24.dp))
                             Text("Tools", color = GenomicsMuted, fontSize = 14.sp)
                             Spacer(Modifier.height(8.dp))
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = { webViewInstance?.evaluateJavascript("resetView()", null) },
-                                    modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)
-                                ) { Text("Reset View", color = GenomicsText) }
-                                
-                                Button(
-                                    onClick = { webViewInstance?.evaluateJavascript("toggleHydrogens()", null) },
-                                    modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)
-                                ) { Text("Toggle H", color = GenomicsText) }
+                                Button(onClick = { webViewInstance?.evaluateJavascript("resetView()", null) }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)) { Text("Reset View", color = GenomicsText) }
+                                Button(onClick = { webViewInstance?.evaluateJavascript("toggleHydrogens()", null) }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)) { Text("Toggle H", color = GenomicsText) }
                             }
                             Spacer(Modifier.height(48.dp))
                         }
                     }
                 }
-
-                // Bottom Section: FASTA + Close Button
                 Column(Modifier.fillMaxWidth()) {
                     Surface(color = Color.White.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp), border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))) {
-                        LazyRow(
-                            modifier = Modifier.fillMaxWidth().height(40.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        LazyRow(modifier = Modifier.fillMaxWidth().height(40.dp), contentPadding = PaddingValues(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (fastaResidues.isEmpty()) {
                                 item { Text("SEQ: Not available", color = GenomicsMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
                             } else {
@@ -453,30 +294,22 @@ fun ViewerScreen(incomingUri: Uri?) {
                                         fontSize = 14.sp,
                                         fontFamily = FontFamily.Monospace,
                                         fontWeight = FontWeight.Bold,
-                                        modifier = Modifier
-                                            .padding(horizontal = 2.dp)
-                                            .clickable {
-                                                val chainId = res.chain?.id ?: 'A'
-                                                webViewInstance?.evaluateJavascript("highlightResidue('$chainId', ${res.number})", null)
-                                            }
+                                        modifier = Modifier.padding(horizontal = 2.dp).clickable {
+                                            val chainId = res.chain?.id ?: 'A'
+                                            webViewInstance?.evaluateJavascript("highlightResidue('$chainId', ${res.number})", null)
+                                        }
                                     )
                                 }
                             }
                         }
                     }
                     Spacer(Modifier.height(8.dp))
-
                     TextButton(
-                        onClick = { 
-                            pdbText = null 
-                            fastaResidues = emptyList()
-                            isSpinning = false
-                            isPageReady = false
-                            webViewInstance?.reload()
-                        },
+                        onClick = { pdbText = null; fastaResidues = emptyList(); isSpinning = false; isPageReady = false; webViewInstance?.reload() },
                         modifier = Modifier.align(Alignment.CenterHorizontally).background(GenomicsSurface.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
-                    ) { 
-                        Text("Close Structure", color = GenomicsMuted) 
-                    }
+                    ) { Text("Close Structure", color = GenomicsMuted) }
                 }
             }
+        }
+    }
+}
