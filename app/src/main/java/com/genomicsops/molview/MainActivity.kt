@@ -27,14 +27,19 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             GenomicsTheme {
-                var showSplash by remember { mutableStateOf(true) }
-                if (showSplash) {
-                    SplashScreen { showSplash = false }
-                } else {
-                    ViewerScreen()
-                }
+                AppRoot()
             }
         }
+    }
+}
+
+@Composable
+fun AppRoot() {
+    var showSplash by remember { mutableStateOf(true) }
+    if (showSplash) {
+        SplashScreen { showSplash = false }
+    } else {
+        ViewerScreen()
     }
 }
 
@@ -50,24 +55,26 @@ fun ViewerScreen() {
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        isLoading = true
-        scope.launch {
-            val text = withContext(Dispatchers.IO) {
-                try {
-                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText()
-                } catch (e: Exception) { null }
+        if (uri != null) {
+            isLoading = true
+            scope.launch {
+                val text = withContext(Dispatchers.IO) {
+                    try {
+                        context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText()
+                    } catch (e: Exception) { null }
+                }
+                if (text != null) {
+                    pdbText = text
+                    webViewInstance?.evaluateJavascript("loadModel(\`$text\`)", null)
+                }
+                isLoading = false
             }
-            if (text != null) {
-                pdbText = text
-                webViewInstance?.evaluateJavascript("loadModel(`$text`)", null)
-            }
-            isLoading = false
         }
     }
 
     Column(Modifier.fillMaxSize()) {
         if (pdbText == null) {
+            // HOME SCREEN
             Column(
                 Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -80,6 +87,7 @@ fun ViewerScreen() {
                 Text("Accepts PDB, CIF, SDF, MOL2, XYZ", style = MaterialTheme.typography.bodySmall)
             }
         } else {
+            // VIEWER SCREEN
             Row(
                 Modifier.fillMaxWidth().padding(8.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
@@ -95,7 +103,6 @@ fun ViewerScreen() {
             AndroidView(
                 factory = { ctx ->
                     WebView(ctx).apply {
-                        @Suppress("SetJavaScriptEnabled")
                         settings.javaScriptEnabled = true
                         settings.allowFileAccess = true
                         webViewClient = WebViewClient()
