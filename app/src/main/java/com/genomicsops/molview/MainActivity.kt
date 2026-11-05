@@ -131,6 +131,7 @@ fun ViewerScreen() {
                 try { context.assets.open("defaults/$assetName").bufferedReader().readText() } catch (e: Exception) { null }
             }
             if (text != null) processLoadedFile(text, "pdb")
+            else Toast.makeText(context, "Failed to load demo file", Toast.LENGTH_SHORT).show()
             isLoading = false
         }
     }
@@ -165,8 +166,8 @@ fun ViewerScreen() {
                 Text("Try a Demo", color = GenomicsMuted, fontSize = 14.sp, modifier = Modifier.align(Alignment.Start))
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { loadDefault("1crn.pdb") }, modifier = Modifier.weight(1f)) { Text("Crambin") }
-                    Button(onClick = { loadDefault("1ycr.pdb") }, modifier = Modifier.weight(1f)) { Text("MDM2") }
+                    Button(onClick = { loadDefault("helix.pdb") }, modifier = Modifier.weight(1f)) { Text("Alpha Helix") }
+                    Button(onClick = { loadDefault("sheet.pdb") }, modifier = Modifier.weight(1f)) { Text("Beta Sheet") }
                 }
                 Spacer(Modifier.height(32.dp))
                 Text("Or Load Your Own", color = GenomicsMuted, fontSize = 14.sp, modifier = Modifier.align(Alignment.Start))
