@@ -16,12 +16,16 @@
   var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A', antialias: false });
   var currentModel = null, currentRep = 'cartoon', currentColor = 'spectrum', isSpinning = false, showHydrogens = true;
 
-  // Robust Deselect: Click anywhere on the viewer
-  viewer.setClickable({}, true, function(atom) {
-    if (!atom) {
-      viewer.removeAllShapes();
-      viewer.zoomTo();
-      viewer.render();
+  // RAW CLICK LISTENER: If you click the canvas background, reset the view
+  document.getElementById('viewer').addEventListener('click', function(e) {
+    // Only reset if we aren't clicking a UI element
+    if (e.target.tagName === 'CANVAS') {
+      // Check if we have an active highlight (a shape)
+      if (viewer.getShapes().length > 0) {
+        viewer.removeAllShapes();
+        viewer.zoomTo();
+        viewer.render();
+      }
     }
   });
 
@@ -33,11 +37,12 @@
       viewer.zoomTo();
       setRep(currentRep);
       
-      // FORCE RENDER LOOP (Fixes the blank demo bug)
-      var renders = 0;
+      // FORCE RENDER LOOP: Keep resizing for 2 seconds to guarantee it renders
+      var loops = 0;
       var force = setInterval(function() {
-        viewer.resize(); viewer.render(); renders++;
-        if (renders > 5) clearInterval(force);
+        viewer.resize(); viewer.render();
+        loops++;
+        if (loops > 20) clearInterval(force);
       }, 100);
       
     } catch(e) { if (typeof AndroidLogger !== 'undefined') AndroidLogger.log("Parse Error: " + e.message); }
@@ -69,11 +74,13 @@
   function toggleSpin() { isSpinning = !isSpinning; viewer.spin(isSpinning ? 'y' : false); }
   function toggleHydrogens() { showHydrogens = !showHydrogens; if (!showHydrogens) viewer.setStyle({ elem: 'H' }, {}); else setRep(currentRep); viewer.render(); }
   function resetView() { if (currentModel) { viewer.removeAllShapes(); viewer.zoomTo(); viewer.render(); } }
+  
   function rattle() {
     if (typeof AndroidLogger !== 'undefined') AndroidLogger.vibrate();
     var canvas = document.querySelector('canvas');
     if (canvas) { canvas.classList.remove('rattling'); void canvas.offsetWidth; canvas.classList.add('rattling'); setTimeout(function() { canvas.classList.remove('rattling'); }, 800); }
   }
+  
   function highlightResidue(chain, resi) {
     if (!currentModel) return;
     viewer.removeAllShapes();
