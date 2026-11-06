@@ -16,28 +16,18 @@
   var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A', antialias: false });
   var currentModel = null, currentRep = 'cartoon', currentColorMode = 'rainbow', isSpinning = false, showHydrogens = true;
   var selectedResidue = null; 
-  var totalResidues = 1;
+  var colorMap = {}; // Will hold the exact Hex colors from Kotlin
 
-  function setTotalResidues(n) {
-    totalResidues = n;
+  function setColorMap(jsonStr) {
+    colorMap = JSON.parse(jsonStr);
   }
 
-  // Identical math to the Kotlin FASTA strip
-  function getColorForResidue(resi) {
-    if (totalResidues <= 1) return "red";
-    var fraction = (resi - 1) / (totalResidues - 1);
-    if (fraction < 0) fraction = 0;
-    if (fraction > 1) fraction = 1;
-    var hue = fraction * 300;
-    return "hsl(" + hue + ", 100%, 50%)";
-  }
-
-  // THE FIX: Use viewer.zoomTo() with no arguments to fit the whole model
   function deselect() {
     if (selectedResidue) {
       selectedResidue = null;
       applyStyle();
-      viewer.zoomTo(600); // 600ms smooth animation
+      // Smoothly zoom out to the whole molecule over 600ms
+      viewer.zoomTo({}, 600); 
       viewer.render();
     }
   }
@@ -65,7 +55,7 @@
       
       // Delay zoomTo slightly to ensure canvas is sized before fitting
       setTimeout(function() { 
-        viewer.zoomTo(0); // Reset camera immediately
+        viewer.zoomTo(); // Zooms to whole model correctly
         viewer.render(); 
       }, 150);
     } catch(e) { if (typeof AndroidLogger !== 'undefined') AndroidLogger.log("Parse Error: " + e.message); }
@@ -77,13 +67,21 @@
     var isCartoon = (currentRep === 'cartoon' || currentRep === 'surface');
     
     if (currentColorMode === 'rainbow') {
-      if (isCartoon) viewer.setStyle({}, { cartoon: { colorfunc: function(atom) { return getColorForResidue(atom.resi); } } });
-      else if (currentRep === 'ballstick') viewer.setStyle({}, { stick: { radius: 0.15, colorfunc: function(atom) { return getColorForResidue(atom.resi); } }, sphere: { scale: 0.25, colorfunc: function(atom) { return getColorForResidue(atom.resi); } } });
-      else viewer.setStyle({}, { stick: { radius: 0.15, colorfunc: function(atom) { return getColorForResidue(atom.resi); } } });
+      // Use the exact map passed from Kotlin. Fallback to white if missing.
+      var colorFunc = function(atom) {
+        var key = atom.chain + "_" + atom.resi;
+        return colorMap[key] || "#FFFFFF";
+      };
+      
+      if (isCartoon) viewer.setStyle({}, { cartoon: { colorfunc: colorFunc } });
+      else if (currentRep === 'ballstick') viewer.setStyle({}, { stick: { radius: 0.15, colorfunc: colorFunc }, sphere: { scale: 0.25, colorfunc: colorFunc } });
+      else viewer.setStyle({}, { stick: { radius: 0.15, colorfunc: colorFunc } });
+      
     } else if (currentColorMode === 'chain') {
       if (isCartoon) viewer.setStyle({}, { cartoon: { colorscheme: 'chain' } });
       else if (currentRep === 'ballstick') viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: 'chain' }, sphere: { scale: 0.25, colorscheme: 'chain' } });
       else viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: 'chain' } });
+      
     } else if (currentColorMode === 'ligand') {
       if (isCartoon) {
         viewer.setStyle({ hetflag: false }, { cartoon: { color: '#8B949E' } });
@@ -110,7 +108,7 @@
   function setColor(mode) { currentColorMode = mode; applyStyle(); }
   function toggleSpin() { isSpinning = !isSpinning; viewer.spin(isSpinning ? 'y' : false); }
   function toggleHydrogens() { showHydrogens = !showHydrogens; if (!showHydrogens) viewer.setStyle({ elem: 'H' }, {}); else applyStyle(); viewer.render(); }
-  function resetView() { if (currentModel) { selectedResidue = null; applyStyle(); viewer.zoomTo(600); viewer.render(); } }
+  function resetView() { if (currentModel) { selectedResidue = null; applyStyle(); viewer.zoomTo({}, 600); viewer.render(); } }
   
   function rattle() {
     if (typeof AndroidLogger !== 'undefined') AndroidLogger.vibrate();
