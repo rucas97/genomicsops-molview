@@ -15,17 +15,37 @@
 <script>
   var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A', antialias: false });
   var currentModel = null, currentRep = 'cartoon', currentColorMode = 'rainbow', isSpinning = false, showHydrogens = true;
-  var selectedResidue = null; // Track selection globally
+  var selectedResidue = null; 
 
-  // Deselect and reset camera when clicking empty background space
-  viewer.setClickable({}, true, function(atom, v) {
-    if (!atom) {
+  // HARD RESET FUNCTION
+  function deselect() {
+    if (selectedResidue) {
       selectedResidue = null;
-      applyStyle(); 
-      v.zoomTo(); // Resets the rotation center to the whole protein
-      v.render();
+      applyStyle();      // Removes magenta highlight
+      viewer.zoomTo();   // Unlocks the camera pivot to center of protein
+      viewer.render();
     }
-  });
+  }
+
+  // Intercept raw touches to detect a "tap" (not a drag)
+  let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
+  document.body.addEventListener('touchstart', function(e) {
+    touchStartTime = Date.now();
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, {passive: true});
+
+  document.body.addEventListener('touchend', function(e) {
+    let duration = Date.now() - touchStartTime;
+    let dx = e.changedTouches[0].clientX - touchStartX;
+    let dy = e.changedTouches[0].clientY - touchStartY;
+    let distance = Math.sqrt(dx*dx + dy*dy);
+    
+    // If tap was fast (< 200ms) and didn't move (< 10px), it's a click on empty space
+    if (duration < 200 && distance < 10) {
+      deselect();
+    }
+  }, {passive: true});
 
   function loadModel(data, ext) {
     try {
@@ -43,7 +63,6 @@
     viewer.removeAllSurfaces();
     var isCartoon = (currentRep === 'cartoon' || currentRep === 'surface');
     
-    // Base Style
     if (currentColorMode === 'rainbow') {
       if (isCartoon) viewer.setStyle({}, { cartoon: { color: 'spectrum' } });
       else if (currentRep === 'ballstick') viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: 'spectrum' }, sphere: { scale: 0.25, colorscheme: 'spectrum' } });
@@ -62,9 +81,9 @@
       }
     }
     
-    // Apply Highlight if a residue is selected
+    // Apply Magenta Highlight if selected
     if (selectedResidue) {
-      viewer.addStyle(selectedResidue, { stick: { color: 'magenta', radius: 0.3 }, cartoon: { color: 'magenta' } });
+      viewer.addStyle(selectedResidue, { cartoon: { color: 'magenta' }, stick: { color: 'magenta', radius: 0.3 } });
     }
     
     if (currentRep === 'surface') {
@@ -78,7 +97,15 @@
   function setColor(mode) { currentColorMode = mode; applyStyle(); }
   function toggleSpin() { isSpinning = !isSpinning; viewer.spin(isSpinning ? 'y' : false); }
   function toggleHydrogens() { showHydrogens = !showHydrogens; if (!showHydrogens) viewer.setStyle({ elem: 'H' }, {}); else applyStyle(); viewer.render(); }
-  function resetView() { if (currentModel) { selectedResidue = null; applyStyle(); viewer.zoomTo(); viewer.render(); } }
+  
+  function resetView() { 
+    if (currentModel) { 
+      selectedResidue = null;
+      applyStyle(); 
+      viewer.zoomTo(); 
+      viewer.render(); 
+    } 
+  }
   
   function rattle() {
     if (typeof AndroidLogger !== 'undefined') AndroidLogger.vibrate();
@@ -89,8 +116,8 @@
   function highlightResidue(chain, resi) {
     if (!currentModel) return;
     selectedResidue = { chain: chain, resi: resi };
-    applyStyle(); // This will draw the magenta highlight
-    viewer.zoomTo(selectedResidue, 800); // Pivots camera to residue
+    applyStyle(); // Draws magenta highlight
+    viewer.zoomTo(selectedResidue, 800); // Pivots camera
     viewer.render();
   }
 </script>

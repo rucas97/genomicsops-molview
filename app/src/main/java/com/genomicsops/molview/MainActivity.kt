@@ -81,12 +81,9 @@ fun get1LetterCode(resName: String): Char = when(resName) {
     "ALA" -> 'A'; "ARG" -> 'R'; "ASN" -> 'N'; "ASP" -> 'D'; "CYS" -> 'C'; "GLN" -> 'Q'; "GLU" -> 'E'; "GLY" -> 'G'; "HIS" -> 'H'; "ILE" -> 'I'; "LEU" -> 'L'; "LYS" -> 'K'; "MET" -> 'M'; "PHE" -> 'F'; "PRO" -> 'P'; "SER" -> 'S'; "THR" -> 'T'; "TRP" -> 'W'; "TYR" -> 'Y'; "VAL" -> 'V'; else -> 'X'
 }
 
-fun getSpectrumColor(residue: Residue, allResidues: List<Residue>): Color {
-    if (allResidues.isEmpty()) return Color.Red
-    val minRes = allResidues.minOf { it.number }
-    val maxRes = allResidues.maxOf { it.number }
-    if (maxRes == minRes) return Color.Red
-    val fraction = (residue.number - minRes).toFloat() / (maxRes - minRes)
+fun getSpectrumColor(index: Int, total: Int): Color {
+    if (total <= 1) return Color.Red
+    val fraction = index.toFloat() / (total - 1)
     val hue = fraction * 300f
     return Color.hsv(hue, 1f, 1f)
 }
@@ -287,7 +284,7 @@ fun ViewerScreen(incomingUri: Uri?) {
                                 items(fastaResidues.size) { index ->
                                     val res = fastaResidues[index]
                                     val textColor = when (currentColorMode) {
-                                        "rainbow" -> getSpectrumColor(res, fastaResidues)
+                                        "rainbow" -> getSpectrumColor(index, fastaResidues.size)
                                         "chain" -> {
                                             val chainChar = res.chain?.id ?: 'A'
                                             Color.hsv(((chainChar.code % 10) * 36f), 1f, 1f)
