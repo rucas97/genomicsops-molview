@@ -101,6 +101,7 @@ fun ViewerScreen(incomingUri: Uri?) {
     var isReadingIncoming by remember { mutableStateOf(incomingUri != null) }
     var showSettings by remember { mutableStateOf(false) }
     var isSpinning by remember { mutableStateOf(false) }
+    var currentColorMode by remember { mutableStateOf("rainbow") }
 
     fun injectModel(text: String, ext: String) {
         webViewInstance?.evaluateJavascript("loadModel(${JSONObject.quote(text)}, '$ext')", null)
@@ -256,9 +257,9 @@ fun ViewerScreen(incomingUri: Uri?) {
                             Text("Color Scheme", color = GenomicsMuted, fontSize = 14.sp)
                             Spacer(Modifier.height(8.dp))
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = { webViewInstance?.evaluateJavascript("setColor('rainbow')", null) }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)) { Text("Rainbow", color = GenomicsCyan, fontSize = 12.sp) }
-                                Button(onClick = { webViewInstance?.evaluateJavascript("setColor('chain')", null) }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)) { Text("Chain", color = GenomicsCyan, fontSize = 12.sp) }
-                                Button(onClick = { webViewInstance?.evaluateJavascript("setColor('ligand')", null) }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)) { Text("Ligand Focus", color = GenomicsTeal, fontSize = 11.sp) }
+                                Button(onClick = { currentColorMode = "rainbow"; webViewInstance?.evaluateJavascript("setColor('rainbow')", null) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)) { Text("Rainbow", color = GenomicsCyan, fontSize = 12.sp) }
+                                Button(onClick = { currentColorMode = "chain"; webViewInstance?.evaluateJavascript("setColor('chain')", null) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)) { Text("Chain", color = GenomicsCyan, fontSize = 12.sp) }
+                                Button(onClick = { currentColorMode = "ligand"; webViewInstance?.evaluateJavascript("setColor('ligand')", null) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)) { Text("Ligand", color = GenomicsTeal, fontSize = 12.sp) }
                             }
                             Spacer(Modifier.height(24.dp))
                             Text("Tools", color = GenomicsMuted, fontSize = 14.sp)
@@ -280,9 +281,17 @@ fun ViewerScreen(incomingUri: Uri?) {
                                 item { Text("SEQ: ", color = GenomicsCyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold) }
                                 items(fastaResidues.size) { index ->
                                     val res = fastaResidues[index]
+                                    val textColor = when (currentColorMode) {
+                                        "rainbow" -> getSpectrumColor(index, fastaResidues.size)
+                                        "chain" -> {
+                                            val chainChar = res.chain?.id ?: 'A'
+                                            Color.hsv(((chainChar.code % 10) * 36f), 1f, 1f)
+                                        }
+                                        else -> Color.Gray
+                                    }
                                     Text(
                                         text = get1LetterCode(res.name).toString(),
-                                        color = GenomicsCyan,
+                                        color = textColor,
                                         fontSize = 14.sp,
                                         fontFamily = FontFamily.Monospace,
                                         fontWeight = FontWeight.Bold,

@@ -16,12 +16,13 @@
   var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A', antialias: false });
   var currentModel = null, currentRep = 'cartoon', currentColorMode = 'rainbow', isSpinning = false, showHydrogens = true;
 
-  // Native 3Dmol deselect (clicking empty black space)
-  viewer.setClickable({}, true, function(atom) {
+  // DESELECT FIX: Reset styles, camera, and shapes
+  viewer.setClickable({}, true, function(atom, v) {
     if (!atom) {
-      viewer.removeAllShapes();
-      viewer.zoomTo();
-      viewer.render();
+      v.removeAllShapes();
+      applyStyle(); // Clears the yellow highlight
+      v.zoomTo();   // Resets the rotation anchor
+      v.render();
     }
   });
 
@@ -39,22 +40,17 @@
   function applyStyle() {
     if (!currentModel) return;
     viewer.removeAllSurfaces();
-    
     var isCartoon = (currentRep === 'cartoon' || currentRep === 'surface');
     
-    // Smart Color Logic
     if (currentColorMode === 'rainbow') {
       if (isCartoon) viewer.setStyle({}, { cartoon: { color: 'spectrum' } });
       else if (currentRep === 'ballstick') viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: 'spectrum' }, sphere: { scale: 0.25, colorscheme: 'spectrum' } });
       else viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: 'spectrum' } });
-      
     } else if (currentColorMode === 'chain') {
       if (isCartoon) viewer.setStyle({}, { cartoon: { colorscheme: 'chain' } });
       else if (currentRep === 'ballstick') viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: 'chain' }, sphere: { scale: 0.25, colorscheme: 'chain' } });
       else viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: 'chain' } });
-      
     } else if (currentColorMode === 'ligand') {
-      // Protein is grey, ligands are green
       if (isCartoon) {
         viewer.setStyle({ hetflag: false }, { cartoon: { color: '#8B949E' } });
         viewer.setStyle({ hetflag: true }, { stick: { colorscheme: 'greenCarbon', radius: 0.2 } });
@@ -67,7 +63,6 @@
     if (currentRep === 'surface') {
       viewer.addSurface($3Dmol.SurfaceType.VDW, { opacity: 0.85, color: 'white' }, { model: currentModel });
     }
-    
     if (!showHydrogens) viewer.setStyle({ elem: 'H' }, {});
     viewer.render();
   }
@@ -76,7 +71,7 @@
   function setColor(mode) { currentColorMode = mode; applyStyle(); }
   function toggleSpin() { isSpinning = !isSpinning; viewer.spin(isSpinning ? 'y' : false); }
   function toggleHydrogens() { showHydrogens = !showHydrogens; if (!showHydrogens) viewer.setStyle({ elem: 'H' }, {}); else applyStyle(); viewer.render(); }
-  function resetView() { if (currentModel) { viewer.removeAllShapes(); viewer.zoomTo(); viewer.render(); } }
+  function resetView() { if (currentModel) { viewer.removeAllShapes(); applyStyle(); viewer.zoomTo(); viewer.render(); } }
   
   function rattle() {
     if (typeof AndroidLogger !== 'undefined') AndroidLogger.vibrate();
@@ -87,6 +82,7 @@
   function highlightResidue(chain, resi) {
     if (!currentModel) return;
     viewer.removeAllShapes();
+    applyStyle(); // Reset base styles
     var sel = { chain: chain, resi: resi };
     viewer.addStyle(sel, { stick: { color: 'yellow', radius: 0.3 } });
     viewer.zoomTo(sel, 800);
