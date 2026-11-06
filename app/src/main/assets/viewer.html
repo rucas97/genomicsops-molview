@@ -16,8 +16,8 @@
   var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A', antialias: false });
   var currentModel = null, currentRep = 'cartoon', currentColor = 'spectrum', isSpinning = false, showHydrogens = true;
 
-  // Deselect when clicking empty space
-  viewer.setClickable({}, true, function(atom, viewer, event, container) {
+  // Robust Deselect: Click anywhere on the viewer
+  viewer.setClickable({}, true, function(atom) {
     if (!atom) {
       viewer.removeAllShapes();
       viewer.zoomTo();
@@ -32,7 +32,14 @@
       currentModel = viewer.addModel(data, ext);
       viewer.zoomTo();
       setRep(currentRep);
-      setTimeout(function() { viewer.resize(); viewer.render(); }, 150);
+      
+      // FORCE RENDER LOOP (Fixes the blank demo bug)
+      var renders = 0;
+      var force = setInterval(function() {
+        viewer.resize(); viewer.render(); renders++;
+        if (renders > 5) clearInterval(force);
+      }, 100);
+      
     } catch(e) { if (typeof AndroidLogger !== 'undefined') AndroidLogger.log("Parse Error: " + e.message); }
   }
 
@@ -41,11 +48,8 @@
     if (!currentModel) return;
     viewer.removeAllSurfaces();
     function getStyle(type) {
-      if (currentColor === 'spectrum') {
-        var s = {}; s[type] = { color: 'spectrum' }; return s;
-      } else {
-        var s = {}; s[type] = { colorscheme: currentColor }; return s;
-      }
+      if (currentColor === 'spectrum') { var s = {}; s[type] = { color: 'spectrum' }; return s; }
+      else { var s = {}; s[type] = { colorscheme: currentColor }; return s; }
     }
     if (rep === 'cartoon') viewer.setStyle({}, getStyle('cartoon'));
     else if (rep === 'surface') {
