@@ -163,8 +163,8 @@ fun ViewerScreen(incomingUri: Uri?) {
                 Text("Try a Demo", color = GenomicsMuted, fontSize = 14.sp, modifier = Modifier.align(Alignment.Start))
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { loadDefault("helix.pdb") }, modifier = Modifier.weight(1f)) { Text("Alpha Helix") }
-                    Button(onClick = { loadDefault("sheet.pdb") }, modifier = Modifier.weight(1f)) { Text("Beta Sheet") }
+                    Button(onClick = { loadDefault("1CRN.pdb") }, modifier = Modifier.weight(1f)) { Text("Crambin") }
+                    Button(onClick = { loadDefault("4HHB.pdb") }, modifier = Modifier.weight(1f)) { Text("Hemoglobin") }
                 }
                 Spacer(Modifier.height(32.dp))
                 Text("Or Load Your Own", color = GenomicsMuted, fontSize = 14.sp, modifier = Modifier.align(Alignment.Start))
