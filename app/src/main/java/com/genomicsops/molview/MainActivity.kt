@@ -255,18 +255,10 @@ fun ViewerScreen(incomingUri: Uri?) {
                             Spacer(Modifier.height(16.dp))
                             Text("Color Scheme", color = GenomicsMuted, fontSize = 14.sp)
                             Spacer(Modifier.height(8.dp))
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                val colors = listOf("spectrum", "chain", "ssPyMOL", "greenCarbon", "chainHetatm")
-                                items(colors.size) { index ->
-                                    val color = colors[index]
-                                    FilterChip(
-                                        selected = false,
-                                        onClick = { webViewInstance?.evaluateJavascript("setColor('$color')", null) },
-                                        label = { Text(color, fontSize = 12.sp) },
-                                        colors = FilterChipDefaults.filterChipColors(labelColor = GenomicsCyan, containerColor = GenomicsDark),
-                                        border = FilterChipDefaults.filterChipBorder(enabled = true, selected = false, borderColor = GenomicsCyan.copy(alpha = 0.3f))
-                                    )
-                                }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = { webViewInstance?.evaluateJavascript("setColor('rainbow')", null) }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)) { Text("Rainbow", color = GenomicsCyan, fontSize = 12.sp) }
+                                Button(onClick = { webViewInstance?.evaluateJavascript("setColor('chain')", null) }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)) { Text("Chain", color = GenomicsCyan, fontSize = 12.sp) }
+                                Button(onClick = { webViewInstance?.evaluateJavascript("setColor('ligand')", null) }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)) { Text("Ligand Focus", color = GenomicsTeal, fontSize = 11.sp) }
                             }
                             Spacer(Modifier.height(24.dp))
                             Text("Tools", color = GenomicsMuted, fontSize = 14.sp)
@@ -290,7 +282,7 @@ fun ViewerScreen(incomingUri: Uri?) {
                                     val res = fastaResidues[index]
                                     Text(
                                         text = get1LetterCode(res.name).toString(),
-                                        color = getSpectrumColor(index, fastaResidues.size),
+                                        color = GenomicsCyan,
                                         fontSize = 14.sp,
                                         fontFamily = FontFamily.Monospace,
                                         fontWeight = FontWeight.Bold,
