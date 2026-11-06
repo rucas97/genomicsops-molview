@@ -81,9 +81,14 @@ fun get1LetterCode(resName: String): Char = when(resName) {
     "ALA" -> 'A'; "ARG" -> 'R'; "ASN" -> 'N'; "ASP" -> 'D'; "CYS" -> 'C'; "GLN" -> 'Q'; "GLU" -> 'E'; "GLY" -> 'G'; "HIS" -> 'H'; "ILE" -> 'I'; "LEU" -> 'L'; "LYS" -> 'K'; "MET" -> 'M'; "PHE" -> 'F'; "PRO" -> 'P'; "SER" -> 'S'; "THR" -> 'T'; "TRP" -> 'W'; "TYR" -> 'Y'; "VAL" -> 'V'; else -> 'X'
 }
 
-fun getSpectrumColor(index: Int, total: Int): Color {
-    if (total <= 1) return Color.Red
-    return Color.hsv((index.toFloat() / (total - 1)) * 300f, 1f, 1f)
+fun getSpectrumColor(residue: Residue, allResidues: List<Residue>): Color {
+    if (allResidues.isEmpty()) return Color.Red
+    val minRes = allResidues.minOf { it.number }
+    val maxRes = allResidues.maxOf { it.number }
+    if (maxRes == minRes) return Color.Red
+    val fraction = (residue.number - minRes).toFloat() / (maxRes - minRes)
+    val hue = fraction * 300f
+    return Color.hsv(hue, 1f, 1f)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
