@@ -15,13 +15,14 @@
 <script>
   var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A', antialias: false });
   var currentModel = null, currentRep = 'cartoon', currentColorMode = 'rainbow', isSpinning = false, showHydrogens = true;
+  var selectedResidue = null; // Track selection globally
 
-  // DESELECT FIX: Reset styles, camera, and shapes
+  // Deselect and reset camera when clicking empty background space
   viewer.setClickable({}, true, function(atom, v) {
     if (!atom) {
-      v.removeAllShapes();
-      applyStyle(); // Clears the yellow highlight
-      v.zoomTo();   // Resets the rotation anchor
+      selectedResidue = null;
+      applyStyle(); 
+      v.zoomTo(); // Resets the rotation center to the whole protein
       v.render();
     }
   });
@@ -29,7 +30,7 @@
   function loadModel(data, ext) {
     try {
       viewer.removeAllModels(); viewer.removeAllSurfaces(); viewer.removeAllShapes();
-      isSpinning = false; showHydrogens = true;
+      isSpinning = false; showHydrogens = true; selectedResidue = null;
       currentModel = viewer.addModel(data, ext);
       viewer.zoomTo();
       applyStyle();
@@ -42,6 +43,7 @@
     viewer.removeAllSurfaces();
     var isCartoon = (currentRep === 'cartoon' || currentRep === 'surface');
     
+    // Base Style
     if (currentColorMode === 'rainbow') {
       if (isCartoon) viewer.setStyle({}, { cartoon: { color: 'spectrum' } });
       else if (currentRep === 'ballstick') viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: 'spectrum' }, sphere: { scale: 0.25, colorscheme: 'spectrum' } });
@@ -60,6 +62,11 @@
       }
     }
     
+    // Apply Highlight if a residue is selected
+    if (selectedResidue) {
+      viewer.addStyle(selectedResidue, { stick: { color: 'magenta', radius: 0.3 }, cartoon: { color: 'magenta' } });
+    }
+    
     if (currentRep === 'surface') {
       viewer.addSurface($3Dmol.SurfaceType.VDW, { opacity: 0.85, color: 'white' }, { model: currentModel });
     }
@@ -71,7 +78,7 @@
   function setColor(mode) { currentColorMode = mode; applyStyle(); }
   function toggleSpin() { isSpinning = !isSpinning; viewer.spin(isSpinning ? 'y' : false); }
   function toggleHydrogens() { showHydrogens = !showHydrogens; if (!showHydrogens) viewer.setStyle({ elem: 'H' }, {}); else applyStyle(); viewer.render(); }
-  function resetView() { if (currentModel) { viewer.removeAllShapes(); applyStyle(); viewer.zoomTo(); viewer.render(); } }
+  function resetView() { if (currentModel) { selectedResidue = null; applyStyle(); viewer.zoomTo(); viewer.render(); } }
   
   function rattle() {
     if (typeof AndroidLogger !== 'undefined') AndroidLogger.vibrate();
@@ -81,11 +88,9 @@
   
   function highlightResidue(chain, resi) {
     if (!currentModel) return;
-    viewer.removeAllShapes();
-    applyStyle(); // Reset base styles
-    var sel = { chain: chain, resi: resi };
-    viewer.addStyle(sel, { stick: { color: 'yellow', radius: 0.3 } });
-    viewer.zoomTo(sel, 800);
+    selectedResidue = { chain: chain, resi: resi };
+    applyStyle(); // This will draw the magenta highlight
+    viewer.zoomTo(selectedResidue, 800); // Pivots camera to residue
     viewer.render();
   }
 </script>

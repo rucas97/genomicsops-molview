@@ -282,7 +282,7 @@ fun ViewerScreen(incomingUri: Uri?) {
                                 items(fastaResidues.size) { index ->
                                     val res = fastaResidues[index]
                                     val textColor = when (currentColorMode) {
-                                        "rainbow" -> getSpectrumColor(index, fastaResidues.size)
+                                        "rainbow" -> getSpectrumColor(res, fastaResidues)
                                         "chain" -> {
                                             val chainChar = res.chain?.id ?: 'A'
                                             Color.hsv(((chainChar.code % 10) * 36f), 1f, 1f)
