@@ -6,19 +6,7 @@
 <style>
   html, body { margin: 0; padding: 0; background: #06080A; overflow: hidden; width: 100%; height: 100%; }
   #viewer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #06080A; }
-  @keyframes shake {
-    0% { transform: translate(2px, 1px) rotate(0deg); }
-    10% { transform: translate(-2px, -3px) rotate(-1deg); }
-    20% { transform: translate(-4px, 0px) rotate(1deg); }
-    30% { transform: translate(4px, 3px) rotate(0deg); }
-    40% { transform: translate(2px, -2px) rotate(1deg); }
-    50% { transform: translate(-2px, 3px) rotate(-1deg); }
-    60% { transform: translate(-4px, 2px) rotate(0deg); }
-    70% { transform: translate(4px, 2px) rotate(-1deg); }
-    80% { transform: translate(-2px, -2px) rotate(1deg); }
-    90% { transform: translate(2px, 3px) rotate(0deg); }
-    100% { transform: translate(2px, -3px) rotate(-1deg); }
-  }
+  @keyframes shake { 0% { transform: translate(2px, 1px) rotate(0deg); } 10% { transform: translate(-2px, -3px) rotate(-1deg); } 20% { transform: translate(-4px, 0px) rotate(1deg); } 30% { transform: translate(4px, 3px) rotate(0deg); } 40% { transform: translate(2px, -2px) rotate(1deg); } 50% { transform: translate(-2px, 3px) rotate(-1deg); } 60% { transform: translate(-4px, 2px) rotate(0deg); } 70% { transform: translate(4px, 2px) rotate(-1deg); } 80% { transform: translate(-2px, -2px) rotate(1deg); } 90% { transform: translate(2px, 3px) rotate(0deg); } 100% { transform: translate(2px, -3px) rotate(-1deg); } }
   .rattling { animation: shake 0.4s; animation-iteration-count: 2; }
 </style>
 </head>
@@ -26,14 +14,10 @@
 <div id="viewer"></div>
 <script>
   var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A', antialias: false });
-  var currentModel = null;
-  var currentRep = 'cartoon';
-  var currentColor = 'spectrum';
-  var isSpinning = false;
-  var showHydrogens = true;
+  var currentModel = null, currentRep = 'cartoon', currentColor = 'spectrum', isSpinning = false, showHydrogens = true;
 
   // Deselect when clicking empty space
-  viewer.setClickable({}, true, function(atom) {
+  viewer.setClickable({}, true, function(atom, viewer, event, container) {
     if (!atom) {
       viewer.removeAllShapes();
       viewer.zoomTo();
@@ -43,89 +27,49 @@
 
   function loadModel(data, ext) {
     try {
-      viewer.removeAllModels();
-      viewer.removeAllSurfaces();
-      viewer.removeAllShapes();
-      isSpinning = false;
-      showHydrogens = true;
+      viewer.removeAllModels(); viewer.removeAllSurfaces(); viewer.removeAllShapes();
+      isSpinning = false; showHydrogens = true;
       currentModel = viewer.addModel(data, ext);
       viewer.zoomTo();
       setRep(currentRep);
       setTimeout(function() { viewer.resize(); viewer.render(); }, 150);
-    } catch(e) {
-      if (typeof AndroidLogger !== 'undefined') AndroidLogger.log("Parse Error: " + e.message);
-    }
+    } catch(e) { if (typeof AndroidLogger !== 'undefined') AndroidLogger.log("Parse Error: " + e.message); }
   }
 
   function setRep(rep) {
     currentRep = rep;
     if (!currentModel) return;
     viewer.removeAllSurfaces();
-    
-    function getCartoonStyle() {
-      if (currentColor === 'spectrum') return { cartoon: { color: 'spectrum' } };
-      return { cartoon: { colorscheme: currentColor } };
+    function getStyle(type) {
+      if (currentColor === 'spectrum') {
+        var s = {}; s[type] = { color: 'spectrum' }; return s;
+      } else {
+        var s = {}; s[type] = { colorscheme: currentColor }; return s;
+      }
     }
-    function getStickStyle() {
-      if (currentColor === 'spectrum') return { stick: { radius: 0.15, color: 'spectrum' } };
-      return { stick: { radius: 0.15, colorscheme: currentColor } };
-    }
-    function getSphereStyle() {
-      if (currentColor === 'spectrum') return { sphere: { scale: 0.25, color: 'spectrum' } };
-      return { sphere: { scale: 0.25, colorscheme: currentColor } };
-    }
-
-    if (rep === 'cartoon') {
-      viewer.setStyle({}, getCartoonStyle());
-    } else if (rep === 'surface') {
-      viewer.setStyle({}, getCartoonStyle());
+    if (rep === 'cartoon') viewer.setStyle({}, getStyle('cartoon'));
+    else if (rep === 'surface') {
+      viewer.setStyle({}, getStyle('cartoon'));
       viewer.addSurface($3Dmol.SurfaceType.VDW, { opacity: 0.85, color: 'white' }, { model: currentModel });
-    } else if (rep === 'ballstick') {
-      viewer.setStyle({}, Object.assign({}, getStickStyle(), getSphereStyle()));
-    } else if (rep === 'stick') {
-      viewer.setStyle({}, getStickStyle());
     }
-    
+    else if (rep === 'ballstick') {
+      var s1 = getStyle('stick'), s2 = getStyle('sphere');
+      viewer.setStyle({}, Object.assign({}, s1, s2));
+    }
+    else if (rep === 'stick') viewer.setStyle({}, getStyle('stick'));
     if (!showHydrogens) viewer.setStyle({ elem: 'H' }, {});
     viewer.render();
   }
 
-  function setColor(scheme) {
-    currentColor = scheme;
-    setRep(currentRep);
-  }
-
-  function toggleSpin() {
-    isSpinning = !isSpinning;
-    viewer.spin(isSpinning ? 'y' : false);
-  }
-
-  function toggleHydrogens() {
-    showHydrogens = !showHydrogens;
-    if (!showHydrogens) viewer.setStyle({ elem: 'H' }, {});
-    else setRep(currentRep);
-    viewer.render();
-  }
-
-  function resetView() {
-    if (currentModel) {
-      viewer.removeAllShapes();
-      viewer.zoomTo();
-      viewer.render();
-    }
-  }
-
+  function setColor(scheme) { currentColor = scheme; setRep(currentRep); }
+  function toggleSpin() { isSpinning = !isSpinning; viewer.spin(isSpinning ? 'y' : false); }
+  function toggleHydrogens() { showHydrogens = !showHydrogens; if (!showHydrogens) viewer.setStyle({ elem: 'H' }, {}); else setRep(currentRep); viewer.render(); }
+  function resetView() { if (currentModel) { viewer.removeAllShapes(); viewer.zoomTo(); viewer.render(); } }
   function rattle() {
     if (typeof AndroidLogger !== 'undefined') AndroidLogger.vibrate();
     var canvas = document.querySelector('canvas');
-    if (canvas) {
-      canvas.classList.remove('rattling');
-      void canvas.offsetWidth;
-      canvas.classList.add('rattling');
-      setTimeout(function() { canvas.classList.remove('rattling'); }, 800);
-    }
+    if (canvas) { canvas.classList.remove('rattling'); void canvas.offsetWidth; canvas.classList.add('rattling'); setTimeout(function() { canvas.classList.remove('rattling'); }, 800); }
   }
-
   function highlightResidue(chain, resi) {
     if (!currentModel) return;
     viewer.removeAllShapes();
