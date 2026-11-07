@@ -112,6 +112,8 @@ data class Model(
     val chains: List<Chain>,
     val bonds: List<Bond> = emptyList(),
     val name: String = "",
+    val title: String = "",
+    val header: String = "",
 ) {
     val atomCount: Int get() = atoms.size
     val residueCount: Int get() = residues.size

@@ -105,6 +105,9 @@ fun ViewerScreen(incomingUri: Uri?) {
     var isSpinning by remember { mutableStateOf(false) }
     var selectedFastaIndex by remember { mutableStateOf<Int?>(null) }
     var currentColorMode by remember { mutableStateOf("rainbow") }
+    var showInfo by remember { mutableStateOf(false) }
+    var parsedTitle by remember { mutableStateOf("") }
+    var parsedHeader by remember { mutableStateOf("") }
 
     fun injectModel(text: String, ext: String) {
         webViewInstance?.evaluateJavascript("loadModel(${JSONObject.quote(text)}, '$ext')", null)
@@ -244,6 +247,12 @@ fun ViewerScreen(incomingUri: Uri?) {
                             }
                             IconButton(onClick = { webViewInstance?.evaluateJavascript("rattle()", null) }) {
                                 Icon(Icons.Default.Vibration, contentDescription = "Rattle", tint = GenomicsTeal)
+                            }
+                            IconButton(onClick = { webViewInstance?.evaluateJavascript("captureScreenshot()", null) }) {
+                                Icon(Icons.Default.Share, contentDescription = "Share", tint = GenomicsTeal)
+                            }
+                            IconButton(onClick = { showInfo = true }) {
+                                Icon(Icons.Default.Info, contentDescription = "Info", tint = GenomicsTeal)
                             }
                             IconButton(onClick = { showSettings = true }) {
                                 Icon(Icons.Default.Settings, contentDescription = "Settings", tint = GenomicsTeal)

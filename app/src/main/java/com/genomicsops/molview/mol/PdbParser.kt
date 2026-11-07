@@ -22,6 +22,8 @@ object PdbParser {
         var currentResidue: Residue? = null
         var done = false
         var modelName = ""
+        var title = ""
+        var header = ""
 
         reader.forEachLine { raw ->
             if (done) return@forEachLine
@@ -67,6 +69,8 @@ object PdbParser {
                     atoms.add(withResidue)
                 }
                 "TER" -> currentResidue = null
+                "HEADER" -> header = line.substring(10, 50).trim()
+                "TITLE" -> title += line.substring(10, 80).trim() + " "
                 "END" -> {
                     // Stop once we've collected atoms; ignore trailing noise.
                     if (atoms.isNotEmpty()) done = true
@@ -79,6 +83,8 @@ object PdbParser {
             residues = residues,
             chains = chains.values.toList(),
             name = modelName,
+            title = title.trim(),
+            header = header,
         )
     }
 

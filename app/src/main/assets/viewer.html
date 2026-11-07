@@ -13,7 +13,7 @@
 <body>
 <div id="viewer"></div>
 <script>
-  var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A', antialias: false });
+  var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A', antialias: false, preserveDrawingBuffer: true });
   var currentModel = null, currentRep = 'cartoon', currentColorMode = 'rainbow', isSpinning = false, showHydrogens = true;
   var selectedResidue = null; 
 
@@ -103,6 +103,20 @@
     if (canvas) { canvas.classList.remove('rattling'); void canvas.offsetWidth; canvas.classList.add('rattling'); setTimeout(function() { canvas.classList.remove('rattling'); }, 800); }
   }
   
+
+  function captureScreenshot() {
+    try {
+      viewer.render(); // Ensure the latest frame is drawn
+      var pngData = viewer.pngURI();
+      if (pngData) {
+        var base64Data = pngData.replace(/^data:image\/png;base64,/, "");
+        if (typeof AndroidLogger !== 'undefined') AndroidLogger.shareScreenshot(base64Data);
+      }
+    } catch(e) {
+      if (typeof AndroidLogger !== 'undefined') AndroidLogger.log("Screenshot error: " + e.message);
+    }
+  }
+
   function highlightResidue(chain, resi) {
     if (!currentModel) return;
     selectedResidue = { chain: chain, resi: resi };
