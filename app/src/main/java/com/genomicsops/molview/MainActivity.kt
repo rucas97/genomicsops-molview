@@ -103,6 +103,7 @@ fun ViewerScreen(incomingUri: Uri?) {
     var isReadingIncoming by remember { mutableStateOf(incomingUri != null) }
     var showSettings by remember { mutableStateOf(false) }
     var isSpinning by remember { mutableStateOf(false) }
+    var selectedFastaIndex by remember { mutableStateOf<Int?>(null) }
     var currentColorMode by remember { mutableStateOf("rainbow") }
 
     fun injectModel(text: String, ext: String) {

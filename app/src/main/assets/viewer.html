@@ -16,19 +16,15 @@
   var viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#06080A', antialias: false });
   var currentModel = null, currentRep = 'cartoon', currentColorMode = 'rainbow', isSpinning = false, showHydrogens = true;
   var selectedResidue = null; 
-  var colorMap = {}; // Will hold the exact Hex colors from Kotlin
-
-  function setColorMap(jsonStr) {
-    colorMap = JSON.parse(jsonStr);
-  }
 
   function deselect() {
     if (selectedResidue) {
       selectedResidue = null;
       applyStyle();
-      // Smoothly zoom out to the whole molecule over 600ms
       viewer.zoomTo({}, 600); 
       viewer.render();
+      // Tell Kotlin to clear the highlighted FASTA letter
+      if (typeof AndroidLogger !== 'undefined') AndroidLogger.onDeselected();
     }
   }
 
@@ -52,10 +48,8 @@
       isSpinning = false; showHydrogens = true; selectedResidue = null;
       currentModel = viewer.addModel(data, ext);
       applyStyle();
-      
-      // Delay zoomTo slightly to ensure canvas is sized before fitting
       setTimeout(function() { 
-        viewer.zoomTo(); // Zooms to whole model correctly
+        viewer.zoomTo({}, 0); 
         viewer.render(); 
       }, 150);
     } catch(e) { if (typeof AndroidLogger !== 'undefined') AndroidLogger.log("Parse Error: " + e.message); }
@@ -66,22 +60,15 @@
     viewer.removeAllSurfaces();
     var isCartoon = (currentRep === 'cartoon' || currentRep === 'surface');
     
+    // Reverted to native 3Dmol spectrum (never fails)
     if (currentColorMode === 'rainbow') {
-      // Use the exact map passed from Kotlin. Fallback to white if missing.
-      var colorFunc = function(atom) {
-        var key = atom.chain + "_" + atom.resi;
-        return colorMap[key] || "#FFFFFF";
-      };
-      
-      if (isCartoon) viewer.setStyle({}, { cartoon: { colorfunc: colorFunc } });
-      else if (currentRep === 'ballstick') viewer.setStyle({}, { stick: { radius: 0.15, colorfunc: colorFunc }, sphere: { scale: 0.25, colorfunc: colorFunc } });
-      else viewer.setStyle({}, { stick: { radius: 0.15, colorfunc: colorFunc } });
-      
+      if (isCartoon) viewer.setStyle({}, { cartoon: { color: 'spectrum' } });
+      else if (currentRep === 'ballstick') viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: 'spectrum' }, sphere: { scale: 0.25, colorscheme: 'spectrum' } });
+      else viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: 'spectrum' } });
     } else if (currentColorMode === 'chain') {
       if (isCartoon) viewer.setStyle({}, { cartoon: { colorscheme: 'chain' } });
       else if (currentRep === 'ballstick') viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: 'chain' }, sphere: { scale: 0.25, colorscheme: 'chain' } });
       else viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: 'chain' } });
-      
     } else if (currentColorMode === 'ligand') {
       if (isCartoon) {
         viewer.setStyle({ hetflag: false }, { cartoon: { color: '#8B949E' } });
@@ -92,9 +79,9 @@
       }
     }
     
-    // Apply Highlight if selected
+    // Highlight selected residue in bright CYAN
     if (selectedResidue) {
-      viewer.addStyle({ chain: selectedResidue.chain, resi: selectedResidue.resi }, { cartoon: { color: selectedResidue.color }, stick: { color: selectedResidue.color, radius: 0.3 } });
+      viewer.addStyle({ chain: selectedResidue.chain, resi: selectedResidue.resi }, { cartoon: { color: '#00FFFF' }, stick: { color: '#00FFFF', radius: 0.3 } });
     }
     
     if (currentRep === 'surface') {
@@ -116,11 +103,11 @@
     if (canvas) { canvas.classList.remove('rattling'); void canvas.offsetWidth; canvas.classList.add('rattling'); setTimeout(function() { canvas.classList.remove('rattling'); }, 800); }
   }
   
-  function highlightResidue(chain, resi, colorHex) {
+  function highlightResidue(chain, resi) {
     if (!currentModel) return;
-    selectedResidue = { chain: chain, resi: resi, color: colorHex };
+    selectedResidue = { chain: chain, resi: resi };
     applyStyle();
-    viewer.zoomTo({ chain: chain, resi: resi }, 600); // Smooth zoom in
+    viewer.zoomTo({ chain: chain, resi: resi }, 600); 
     viewer.render();
   }
 </script>
