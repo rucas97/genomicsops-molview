@@ -117,8 +117,13 @@ fun ViewerScreen(incomingUri: Uri?) {
         pdbText = text
         fileExt = ext
         scope.launch {
-            fastaResidues = withContext(Dispatchers.Default) {
-                try { PdbParser.parse(text.byteInputStream()).chains.flatMap { it.residues }.filter { it.isStandardAA } } catch (e: Exception) { emptyList() }
+            val parsedModel = withContext(Dispatchers.Default) {
+                try { PdbParser.parse(text.byteInputStream()) } catch (e: Exception) { null }
+            }
+            if (parsedModel != null) {
+                fastaResidues = parsedModel.chains.flatMap { it.residues }.filter { it.isStandardAA }
+                parsedTitle = parsedModel.title
+                parsedHeader = parsedModel.header
             }
             if (isPageReady) injectModel(text, ext)
         }
@@ -261,7 +266,25 @@ fun ViewerScreen(incomingUri: Uri?) {
                     }
                 }
                 
-                if (showSettings) {
+                if (showInfo) {
+            AlertDialog(
+                onDismissRequest = { showInfo = false },
+                title = { Text("Structure Info", color = GenomicsCyan, fontWeight = FontWeight.Bold) },
+                text = { 
+                    Column {
+                        Text(if (parsedTitle.isNotBlank()) parsedTitle else "Unknown Title", color = GenomicsText, fontWeight = FontWeight.Medium)
+                        Spacer(Modifier.height(8.dp))
+                        Text(if (parsedHeader.isNotBlank()) parsedHeader else "No header metadata", color = GenomicsMuted, fontSize = 14.sp)
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showInfo = false }) { Text("Close", color = GenomicsCyan) }
+                },
+                containerColor = GenomicsSurface
+            )
+        }
+
+        if (showSettings) {
                     ModalBottomSheet(onDismissRequest = { showSettings = false }, containerColor = GenomicsSurface) {
                         Column(Modifier.fillMaxWidth().padding(16.dp)) {
                             Text("View Settings", color = GenomicsText, fontSize = 20.sp, fontWeight = FontWeight.Bold)

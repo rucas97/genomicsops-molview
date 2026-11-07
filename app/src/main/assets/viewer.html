@@ -106,14 +106,17 @@
 
   function captureScreenshot() {
     try {
-      viewer.render(); // Ensure the latest frame is drawn
-      var pngData = viewer.pngURI();
-      if (pngData) {
-        var base64Data = pngData.replace(/^data:image\/png;base64,/, "");
-        if (typeof AndroidLogger !== 'undefined') AndroidLogger.shareScreenshot(base64Data);
+      viewer.render(); 
+      var canvas = document.querySelector('canvas');
+      if (!canvas) {
+        if (typeof AndroidLogger !== 'undefined') AndroidLogger.log("Canvas not found");
+        return;
       }
+      var pngData = canvas.toDataURL('image/png');
+      var base64Data = pngData.replace(/^data:image\/png;base64,/, "");
+      if (typeof AndroidLogger !== 'undefined') AndroidLogger.shareScreenshot(base64Data);
     } catch(e) {
-      if (typeof AndroidLogger !== 'undefined') AndroidLogger.log("Screenshot error: " + e.message);
+      if (typeof AndroidLogger !== 'undefined') AndroidLogger.log("JS Screenshot Error: " + e.message);
     }
   }
 
