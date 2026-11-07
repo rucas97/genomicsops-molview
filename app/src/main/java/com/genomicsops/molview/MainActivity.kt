@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.provider.OpenableColumns
+import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -40,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.FileProvider
 import com.genomicsops.molview.mol.PdbParser
 import com.genomicsops.molview.mol.Residue
 import com.genomicsops.molview.ui.*
@@ -47,6 +49,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 
 class MainActivity : ComponentActivity() {
     var incomingUri by mutableStateOf<Uri?>(null)
@@ -81,19 +85,13 @@ fun get1LetterCode(resName: String): Char = when(resName) {
     "ALA" -> 'A'; "ARG" -> 'R'; "ASN" -> 'N'; "ASP" -> 'D'; "CYS" -> 'C'; "GLN" -> 'Q'; "GLU" -> 'E'; "GLY" -> 'G'; "HIS" -> 'H'; "ILE" -> 'I'; "LEU" -> 'L'; "LYS" -> 'K'; "MET" -> 'M'; "PHE" -> 'F'; "PRO" -> 'P'; "SER" -> 'S'; "THR" -> 'T'; "TRP" -> 'W'; "TYR" -> 'Y'; "VAL" -> 'V'; else -> 'X'
 }
 
-fun getSpectrumColor(index: Int, total: Int): Color {
-    if (total <= 1) return Color.Red
-    val fraction = index.toFloat() / (total - 1)
-    val hue = fraction * 300f
-    return Color.hsv(hue, 1f, 1f)
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("JavascriptInterface")
 @Composable
 fun ViewerScreen(incomingUri: Uri?) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    
     var pdbText by remember { mutableStateOf<String?>(null) }
     var fastaResidues by remember { mutableStateOf<List<Residue>>(emptyList()) }
     var fileExt by remember { mutableStateOf("pdb") }
@@ -101,11 +99,12 @@ fun ViewerScreen(incomingUri: Uri?) {
     var isPageReady by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var isReadingIncoming by remember { mutableStateOf(incomingUri != null) }
+    
     var showSettings by remember { mutableStateOf(false) }
-    var isSpinning by remember { mutableStateOf(false) }
-    var selectedFastaIndex by remember { mutableStateOf<Int?>(null) }
-    var currentColorMode by remember { mutableStateOf("rainbow") }
     var showInfo by remember { mutableStateOf(false) }
+    var isSpinning by remember { mutableStateOf(false) }
+    var currentColorMode by remember { mutableStateOf("rainbow") }
+    var selectedFastaIndex by remember { mutableStateOf<Int?>(null) }
     var parsedTitle by remember { mutableStateOf("") }
     var parsedHeader by remember { mutableStateOf("") }
 
@@ -135,8 +134,12 @@ fun ViewerScreen(incomingUri: Uri?) {
             val text = withContext(Dispatchers.IO) {
                 try { context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText() } catch (e: Exception) { null }
             }
-            if (text != null) processLoadedFile(text, (getFileName(context, uri) ?: "file.pdb").substringAfterLast('.', "pdb").lowercase())
-            else Toast.makeText(context, "Failed to read file", Toast.LENGTH_SHORT).show()
+            if (text != null) {
+                val name = getFileName(context, uri) ?: "file.pdb"
+                processLoadedFile(text, name.substringAfterLast('.', "pdb").lowercase())
+            } else {
+                Toast.makeText(context, "Failed to read file", Toast.LENGTH_SHORT).show()
+            }
             isLoading = false
             isReadingIncoming = false
         }
@@ -167,7 +170,11 @@ fun ViewerScreen(incomingUri: Uri?) {
 
     Box(Modifier.fillMaxSize().background(GenomicsDark)) {
         if (pdbText == null) {
-            Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Column(
+                Modifier.fillMaxSize().padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
                 Image(painter = painterResource(id = R.drawable.logo), contentDescription = "Logo", modifier = Modifier.size(100.dp))
                 Spacer(Modifier.height(24.dp))
                 Text("MolView", color = GenomicsCyan, fontSize = 32.sp, fontWeight = FontWeight.Bold)
@@ -207,14 +214,11 @@ fun ViewerScreen(incomingUri: Uri?) {
                         settings.domStorageEnabled = true
                         settings.allowFileAccess = true
                         settings.allowContentAccess = true
-                        settings.allowFileAccessFromFileURLs = false
-                        settings.allowUniversalAccessFromFileURLs = false
+                        
                         webChromeClient = WebChromeClient()
                         addJavascriptInterface(object {
                             @JavascriptInterface
-                            fun log(msg: String) { 
-                                (ctx as? android.app.Activity)?.runOnUiThread { Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show() } 
-                            }
+                            fun log(msg: String) { (ctx as? android.app.Activity)?.runOnUiThread { Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show() } }
                             @JavascriptInterface
                             fun vibrate() {
                                 val vibrator = ctx.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
@@ -249,6 +253,7 @@ fun ViewerScreen(incomingUri: Uri?) {
                                 (ctx as? android.app.Activity)?.runOnUiThread { selectedFastaIndex = null }
                             }
                         }, "AndroidLogger")
+
                         webViewClient = object : WebViewClient() {
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 super.onPageFinished(view, url)
@@ -262,6 +267,7 @@ fun ViewerScreen(incomingUri: Uri?) {
                 },
                 modifier = Modifier.fillMaxSize()
             )
+
             Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
                 Surface(color = GenomicsSurface.copy(alpha = 0.9f), shape = RoundedCornerShape(8.dp)) {
                     Column(Modifier.fillMaxWidth().padding(8.dp)) {
@@ -298,56 +304,55 @@ fun ViewerScreen(incomingUri: Uri?) {
                 }
                 
                 if (showInfo) {
-            AlertDialog(
-                onDismissRequest = { showInfo = false },
-                containerColor = GenomicsSurface.copy(alpha = 0.95f), // Low opacity glassy background
-                shape = RoundedCornerShape(24.dp),
-                icon = { Icon(Icons.Default.Info, contentDescription = "Info", tint = GenomicsCyan, modifier = Modifier.size(32.dp)) },
-                title = { 
-                    Text(
-                        text = if (parsedTitle.isNotBlank()) parsedTitle else "Unknown Protein", 
-                        color = GenomicsCyan, 
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    ) 
-                },
-                text = { 
-                    Column(Modifier.fillMaxWidth()) {
-                        Text(
-                            text = if (parsedHeader.isNotBlank()) parsedHeader else "No organism metadata available.", 
-                            color = GenomicsText, 
-                            fontSize = 14.sp,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Surface(color = GenomicsDark, shape = RoundedCornerShape(8.dp)) {
-                            Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("Atoms", color = GenomicsMuted, fontSize = 12.sp)
-                                    Text("${pdbText?.count { it == '
-' } ?: 0}", color = GenomicsCyan, fontWeight = FontWeight.Bold)
-                                }
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("Residues", color = GenomicsMuted, fontSize = 12.sp)
-                                    Text("${fastaResidues.size}", color = GenomicsCyan, fontWeight = FontWeight.Bold)
+                    AlertDialog(
+                        onDismissRequest = { showInfo = false },
+                        containerColor = GenomicsSurface.copy(alpha = 0.95f),
+                        shape = RoundedCornerShape(24.dp),
+                        icon = { Icon(Icons.Default.Info, contentDescription = "Info", tint = GenomicsCyan, modifier = Modifier.size(32.dp)) },
+                        title = { 
+                            Text(
+                                text = if (parsedTitle.isNotBlank()) parsedTitle else "Unknown Protein", 
+                                color = GenomicsCyan, 
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 20.sp
+                            ) 
+                        },
+                        text = { 
+                            Column(Modifier.fillMaxWidth()) {
+                                Text(
+                                    text = if (parsedHeader.isNotBlank()) parsedHeader else "No organism metadata available.", 
+                                    color = GenomicsText, 
+                                    fontSize = 14.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(Modifier.height(16.dp))
+                                Surface(color = GenomicsDark, shape = RoundedCornerShape(8.dp)) {
+                                    Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("Atoms", color = GenomicsMuted, fontSize = 12.sp)
+                                            Text("${pdbText?.split("\n")?.size ?: 0}", color = GenomicsCyan, fontWeight = FontWeight.Bold)
+                                        }
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("Residues", color = GenomicsMuted, fontSize = 12.sp)
+                                            Text("${fastaResidues.size}", color = GenomicsCyan, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
                                 }
                             }
+                        },
+                        confirmButton = {
+                            TextButton(
+                                onClick = { showInfo = false },
+                                modifier = Modifier.fillMaxWidth().background(GenomicsCyan, RoundedCornerShape(8.dp))
+                            ) { 
+                                Text("Got it", color = GenomicsDark, fontWeight = FontWeight.Bold) 
+                            }
                         }
-                    }
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = { showInfo = false },
-                        modifier = Modifier.fillMaxWidth().background(GenomicsCyan, RoundedCornerShape(8.dp))
-                    ) { 
-                        Text("Got it", color = GenomicsDark, fontWeight = FontWeight.Bold) 
-                    }
+                    )
                 }
-            )
-        }
 
-        if (showSettings) {
+                if (showSettings) {
                     ModalBottomSheet(onDismissRequest = { showSettings = false }, containerColor = GenomicsSurface) {
                         Column(Modifier.fillMaxWidth().padding(16.dp)) {
                             Text("View Settings", color = GenomicsText, fontSize = 20.sp, fontWeight = FontWeight.Bold)
@@ -355,9 +360,9 @@ fun ViewerScreen(incomingUri: Uri?) {
                             Text("Color Scheme", color = GenomicsMuted, fontSize = 14.sp)
                             Spacer(Modifier.height(8.dp))
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = { currentColorMode = "rainbow"; webViewInstance?.evaluateJavascript("setColor('rainbow')", null) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)) { Text("Rainbow", color = GenomicsCyan, fontSize = 12.sp) }
-                                Button(onClick = { currentColorMode = "chain"; webViewInstance?.evaluateJavascript("setColor('chain')", null) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)) { Text("Chain", color = GenomicsCyan, fontSize = 12.sp) }
-                                Button(onClick = { currentColorMode = "ligand"; webViewInstance?.evaluateJavascript("setColor('ligand')", null) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)) { Text("Ligand", color = GenomicsTeal, fontSize = 12.sp) }
+                                Button(onClick = { currentColorMode = "rainbow"; webViewInstance?.evaluateJavascript("setColor('rainbow')", null) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(2.dp), colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)) { Text("Rainbow", color = GenomicsCyan, fontSize = 11.sp) }
+                                Button(onClick = { currentColorMode = "chain"; webViewInstance?.evaluateJavascript("setColor('chain')", null) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(2.dp), colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)) { Text("Chain", color = GenomicsCyan, fontSize = 11.sp) }
+                                Button(onClick = { currentColorMode = "ligand"; webViewInstance?.evaluateJavascript("setColor('ligand')", null) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(2.dp), colors = ButtonDefaults.buttonColors(containerColor = GenomicsDark)) { Text("Ligand", color = GenomicsTeal, fontSize = 11.sp) }
                             }
                             Spacer(Modifier.height(24.dp))
                             Text("Tools", color = GenomicsMuted, fontSize = 14.sp)
@@ -370,43 +375,59 @@ fun ViewerScreen(incomingUri: Uri?) {
                         }
                     }
                 }
+
                 Column(Modifier.fillMaxWidth()) {
                     Surface(color = Color.White.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp), border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))) {
-                        LazyRow(modifier = Modifier.fillMaxWidth().height(40.dp), contentPadding = PaddingValues(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth().height(40.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             if (fastaResidues.isEmpty()) {
                                 item { Text("SEQ: Not available", color = GenomicsMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
                             } else {
                                 item { Text("SEQ: ", color = GenomicsCyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold) }
                                 items(fastaResidues.size) { index ->
                                     val res = fastaResidues[index]
-                                    val textColor = when (currentColorMode) {
-                                        "rainbow" -> getSpectrumColor(index, fastaResidues.size)
-                                        "chain" -> {
-                                            val chainChar = res.chain?.id ?: 'A'
-                                            Color.hsv(((chainChar.code % 10) * 36f), 1f, 1f)
-                                        }
-                                        else -> Color.Gray
+                                    val isSelected = index == selectedFastaIndex
+                                    
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(horizontal = 1.dp)
+                                            .background(if (isSelected) Color.White else Color.Transparent, RoundedCornerShape(4.dp))
+                                            .clickable {
+                                                selectedFastaIndex = index
+                                                val chainId = res.chain?.id ?: 'A'
+                                                webViewInstance?.evaluateJavascript("highlightResidue('$chainId', ${res.number})", null)
+                                            }
+                                            .padding(horizontal = 2.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = get1LetterCode(res.name).toString(),
+                                            color = if (isSelected) Color.Black else Color.White,
+                                            fontSize = 14.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     }
-                                    Text(
-                                        text = get1LetterCode(res.name).toString(),
-                                        color = textColor,
-                                        fontSize = 14.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 2.dp).clickable {
-                                            val chainId = res.chain?.id ?: 'A'
-                                            webViewInstance?.evaluateJavascript("highlightResidue('$chainId', ${res.number})", null)
-                                        }
-                                    )
                                 }
                             }
                         }
                     }
                     Spacer(Modifier.height(8.dp))
+
                     TextButton(
-                        onClick = { pdbText = null; fastaResidues = emptyList(); isSpinning = false; isPageReady = false; webViewInstance?.reload() },
+                        onClick = { 
+                            pdbText = null 
+                            fastaResidues = emptyList()
+                            isSpinning = false
+                            isPageReady = false
+                            webViewInstance?.reload()
+                        },
                         modifier = Modifier.align(Alignment.CenterHorizontally).background(GenomicsSurface.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
-                    ) { Text("Close Structure", color = GenomicsMuted) }
+                    ) { 
+                        Text("Close Structure", color = GenomicsMuted) 
+                    }
                 }
             }
         }
