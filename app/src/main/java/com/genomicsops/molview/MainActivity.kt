@@ -211,11 +211,42 @@ fun ViewerScreen(incomingUri: Uri?) {
                         settings.allowUniversalAccessFromFileURLs = false
                         webChromeClient = WebChromeClient()
                         addJavascriptInterface(object {
-                            @JavascriptInterface fun log(msg: String) { (ctx as? android.app.Activity)?.runOnUiThread { Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show() } }
-                            @JavascriptInterface fun vibrate() {
-                                val v = ctx.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) v.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
-                                else @Suppress("DEPRECATION") v.vibrate(200)
+                            @JavascriptInterface
+                            fun log(msg: String) { 
+                                (ctx as? android.app.Activity)?.runOnUiThread { Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show() } 
+                            }
+                            @JavascriptInterface
+                            fun vibrate() {
+                                val vibrator = ctx.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) vibrator.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
+                                else @Suppress("DEPRECATION") vibrator.vibrate(200)
+                            }
+                            @JavascriptInterface
+                            fun shareScreenshot(base64Str: String) {
+                                (ctx as? android.app.Activity)?.runOnUiThread {
+                                    try {
+                                        val imageBytes = Base64.decode(base64Str, Base64.DEFAULT)
+                                        val cachePath = File(ctx.cacheDir, "images")
+                                        cachePath.mkdirs()
+                                        val file = File(cachePath, "molview_shot.png")
+                                        FileOutputStream(file).use { it.write(imageBytes) }
+
+                                        val authority = ctx.packageName + ".fileprovider"
+                                        val uri = FileProvider.getUriForFile(ctx, authority, file)
+                                        val intent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "image/png"
+                                            putExtra(Intent.EXTRA_STREAM, uri)
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        ctx.startActivity(Intent.createChooser(intent, "Share Structure"))
+                                    } catch (e: Exception) {
+                                        Toast.makeText(ctx, "Share failed: " + e.message, Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }
+                            @JavascriptInterface
+                            fun onDeselected() {
+                                (ctx as? android.app.Activity)?.runOnUiThread { selectedFastaIndex = null }
                             }
                         }, "AndroidLogger")
                         webViewClient = object : WebViewClient() {
@@ -269,18 +300,50 @@ fun ViewerScreen(incomingUri: Uri?) {
                 if (showInfo) {
             AlertDialog(
                 onDismissRequest = { showInfo = false },
-                title = { Text("Structure Info", color = GenomicsCyan, fontWeight = FontWeight.Bold) },
+                containerColor = GenomicsSurface.copy(alpha = 0.95f), // Low opacity glassy background
+                shape = RoundedCornerShape(24.dp),
+                icon = { Icon(Icons.Default.Info, contentDescription = "Info", tint = GenomicsCyan, modifier = Modifier.size(32.dp)) },
+                title = { 
+                    Text(
+                        text = if (parsedTitle.isNotBlank()) parsedTitle else "Unknown Protein", 
+                        color = GenomicsCyan, 
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    ) 
+                },
                 text = { 
-                    Column {
-                        Text(if (parsedTitle.isNotBlank()) parsedTitle else "Unknown Title", color = GenomicsText, fontWeight = FontWeight.Medium)
-                        Spacer(Modifier.height(8.dp))
-                        Text(if (parsedHeader.isNotBlank()) parsedHeader else "No header metadata", color = GenomicsMuted, fontSize = 14.sp)
+                    Column(Modifier.fillMaxWidth()) {
+                        Text(
+                            text = if (parsedHeader.isNotBlank()) parsedHeader else "No organism metadata available.", 
+                            color = GenomicsText, 
+                            fontSize = 14.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Surface(color = GenomicsDark, shape = RoundedCornerShape(8.dp)) {
+                            Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("Atoms", color = GenomicsMuted, fontSize = 12.sp)
+                                    Text("${pdbText?.count { it == '
+' } ?: 0}", color = GenomicsCyan, fontWeight = FontWeight.Bold)
+                                }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("Residues", color = GenomicsMuted, fontSize = 12.sp)
+                                    Text("${fastaResidues.size}", color = GenomicsCyan, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { showInfo = false }) { Text("Close", color = GenomicsCyan) }
-                },
-                containerColor = GenomicsSurface
+                    TextButton(
+                        onClick = { showInfo = false },
+                        modifier = Modifier.fillMaxWidth().background(GenomicsCyan, RoundedCornerShape(8.dp))
+                    ) { 
+                        Text("Got it", color = GenomicsDark, fontWeight = FontWeight.Bold) 
+                    }
+                }
             )
         }
 
